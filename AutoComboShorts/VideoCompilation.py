@@ -6,7 +6,7 @@ import config
 import random
 import json
 import datetime
-from AI_functions import provide_AI_comptitle, provide_AI_desc
+from AI_functions import provide_AI_comptitle, provide_AI_desc, provide_image
 import tempfile
 
 def get_clip_titles(video_data):
@@ -40,6 +40,8 @@ def update_compilation_data(clip_titles, output_path):
     formatted_path = output_path_str.replace("\\", "/")
     # Escape single quotes inside filenames by doubling them
     escaped_path = formatted_path.replace("'", "''")
+
+
     
     # Prepare the dictionary with required keys
     Title = provide_AI_comptitle(clip_titles)
@@ -47,11 +49,20 @@ def update_compilation_data(clip_titles, output_path):
     Title = Title.strip("\"")
     Desc = "Come check out nouns.gg for more cool projects and opportunities!" +"\n\n" + Desc.strip("\"")
 
+    #Create thumbnail
+    thumbnail = provide_image(Title)
+    if thumbnail is None:
+        print("Thumbnail generation failed, using default placeholder.")
+        thumbnail = config.THUMBNAILS_FOLDER / 'image.png'  # optional fallback
+
+    thumbnail = str(thumbnail).replace("\\", "/").replace("'", "''")
+    
     compilation_dict = {
         "File Path": escaped_path,  
         "Title": Title,
         "Descripition": Desc,
-        "ClipTitles": clip_titles
+        "ClipTitles": clip_titles,
+        "Thumbnail" : thumbnail
     }
     
     # Check if the COMP_DATA file exists and is non-empty
@@ -73,7 +84,7 @@ def update_compilation_data(clip_titles, output_path):
         json.dump(comp_data, file, indent=4)  # Save with indentation for better readability
     print(f"Updated {config.COMP_DATA} with new compilation data.")
 
-def select_clips_for_compilation(video_data, min_length=50, max_length=330):
+def select_clips_for_compilation(video_data, min_length=50, max_length=305):
     """
     Selects video clips sequentially until adding a clip would exceed max_length.
     Stops immediately once an overflow would happen.

@@ -21,6 +21,8 @@ EVENT_FOLDER = get_event_folder()
 print(f"Using event folder: {EVENT_FOLDER}")
 
 # Construct paths
+EVENT_TITLE = EVENT_FOLDER / "data/event_title.txt"
+VENUE_DESC = EVENT_FOLDER / "data/venue_desc.txt"
 COMBO_DATA = EVENT_FOLDER / "data/combodata.txt"
 DATA_FOLDER = EVENT_FOLDER / "data"
 VIDEO_DATA = EVENT_FOLDER / "data/videodata.txt"

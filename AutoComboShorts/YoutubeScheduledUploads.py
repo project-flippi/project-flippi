@@ -1,6 +1,6 @@
 from ProcessComboTextFile import write_video_titles, write_video_descriptions, pair_videodata_with_videofiles
 from VideoCompilation import generate_compilation_from_videodata, fix_mp4_metadata_in_folder
-from YoutubeVideoUpload import get_authenticated_service, scheduled_upload_video1, YoutubeArgs
+from YoutubeVideoUpload import get_authenticated_service, scheduled_upload_video, YoutubeArgs, set_thumbnails
 import config
 import time
 import schedule
@@ -47,24 +47,70 @@ def switch_to_next_event():
     
 
 def process_and_upload_short():
-	print(f"Processing and uploading short from event: {config.get_event_name()}")
-	write_video_titles(config.COMBO_DATA, config.VIDEO_DATA)
-	write_video_descriptions(config.VIDEO_DATA)
-	pair_videodata_with_videofiles(config.VIDEO_DATA, config.VIDEO_FOLDER)
-	scheduled_upload_video1(youtube, config.VIDEO_DATA, config.POSTED_VIDS_FILE, video_args)
+    global youtube
+    events_tried = 0
+    total_events = len(EVENT_LIST)
+
+    while events_tried < total_events:
+        print(f"Processing and uploading short from event: {config.get_event_name()}")
+        write_video_titles(config.COMBO_DATA, config.VIDEO_DATA)
+        write_video_descriptions(config.VIDEO_DATA)
+        pair_videodata_with_videofiles(config.VIDEO_DATA, config.VIDEO_FOLDER)
+
+        try:
+            video_uploaded = scheduled_upload_video(youtube, config.VIDEO_DATA, config.POSTED_VIDS_FILE, video_args)
+        except Exception as e:
+            if "invalid_grant" in str(e):
+                print("Token expired. Re-authorising...")
+                youtube = get_authenticated_service()
+                continue
+            else:
+                raise
+
+        if video_uploaded:
+            return
+        else:
+            print("No unposted videos found. Switching to next event...")
+            switch_to_next_event()
+            events_tried += 1
+    print("No videos uploaded across all events. Will try again next scheduled cycle.")
+
 
 def process_and_upload_comp():
-    print(f"Processing and uploading compilation from event: {config.get_event_name()}")
-    write_video_titles(config.COMBO_DATA, config.VIDEO_DATA)
-    write_video_descriptions(config.VIDEO_DATA)
-    pair_videodata_with_videofiles(config.VIDEO_DATA, config.VIDEO_FOLDER)
-    fix_mp4_metadata_in_folder(config.VIDEO_FOLDER)
-    generate_compilation_from_videodata(config.VIDEO_DATA)
-    scheduled_upload_video1(youtube, config.COMP_DATA, config.POSTED_VIDS_FILE, video_args)
+    events_tried = 0
+    total_events = len(EVENT_LIST)
+    while events_tried < total_events:
+        print(f"Processing and uploading compilation from event: {config.get_event_name()}")
+        write_video_titles(config.COMBO_DATA, config.VIDEO_DATA)
+        write_video_descriptions(config.VIDEO_DATA)
+        pair_videodata_with_videofiles(config.VIDEO_DATA, config.VIDEO_FOLDER)
+        fix_mp4_metadata_in_folder(config.VIDEO_FOLDER)
+        generate_compilation_from_videodata(config.VIDEO_DATA)
+
+        try:
+            video_uploaded = scheduled_upload_video(youtube, config.COMP_DATA, config.POSTED_VIDS_FILE, video_args)
+        except Exception as e:
+            if "invalid_grant" in str(e):
+                print("Token expired. Re-authorising...")
+                youtube = get_authenticated_service()
+                continue
+            else:
+                raise
+                
+        if video_uploaded:
+            set_thumbnails(youtube, config.COMP_DATA)
+            return
+        else:
+            print("No unposted compilations found. Switching to next event...")
+            switch_to_next_event()
+            events_tried += 1
+    print("No compilations uploaded across all events. Will try again next scheduled cycle.")
+
 
 
 def run_schedule():
     schedule.every(1).days.at("12:00").do(switch_to_next_event)
+    schedule.every(1).days.at("23:59").do(switch_to_next_event)
     schedule.every().monday.at("11:00").do(process_and_upload_short)
     schedule.every().monday.at("18:00").do(process_and_upload_short)
     schedule.every().tuesday.at("11:00").do(process_and_upload_comp)
