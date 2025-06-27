@@ -1,0 +1,15 @@
+google_api_python_client==1.7.2
+google_auth_oauthlib==0.4.1
+httplib2==0.22.0
+isodate==0.7.2
+moviepy==1.0.3
+numpy==2.3.1
+openai==1.91.0
+opencv_python==4.11.0.86
+Pillow==11.2.1
+protobuf==6.31.1
+Requests==2.32.4
+schedule==1.2.2
+tenacity==9.0.0
+watchdog==6.0.0
+yt_dlp==2025.6.25
