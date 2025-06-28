@@ -4,7 +4,7 @@ import shutil
 
 # Define path
 HOME_DIR = Path.home()
-PROJECT_FOLDER = HOME_DIR / "BarrelOfNouns"
+PROJECT_FOLDER = HOME_DIR / "project-flippi"
 
 template_folder = PROJECT_FOLDER / "_template"
 destination_root = PROJECT_FOLDER / "Event"
