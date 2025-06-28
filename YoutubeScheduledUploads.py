@@ -8,7 +8,7 @@ from pathlib import Path
 import os
 import importlib
 
-EVENTS_BASE_DIR = Path.home() / "BarrelOfNouns" / "Event"
+EVENTS_BASE_DIR = Path.home() / "project-flippi" / "Event"
 
 def get_event_list():
     """Get a list of subfolder names inside the event directory."""
