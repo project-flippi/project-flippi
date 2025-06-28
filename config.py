@@ -15,7 +15,7 @@ def get_event_folder():
     return PROJECT_FOLDER / "Event" / EVENT_NAME
 
 HOME_DIR = Path.home()
-PROJECT_FOLDER = HOME_DIR / "BarrelOfNouns"
+PROJECT_FOLDER = HOME_DIR / "project-flippi"
 EVENT_NAME = get_event_name()
 EVENT_FOLDER = get_event_folder()
 print(f"Using event folder: {EVENT_FOLDER}")
