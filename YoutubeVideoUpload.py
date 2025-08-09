@@ -11,6 +11,7 @@ import schedule
 import google.oauth2.credentials
 import google_auth_oauthlib.flow
 import json
+import logging
 
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -44,6 +45,8 @@ RETRIABLE_EXCEPTIONS = (httplib2.HttpLib2Error, IOError, http.client.NotConnecte
 # Always retry when an apiclient.errors.HttpError with one of these status
 # codes is raised.
 RETRIABLE_STATUS_CODES = [500, 502, 503, 504]
+RETRIABLE_REASONS = {"backendError", "internalError"}
+FATAL_403_REASONS = {"quotaExceeded", "rateLimitExceeded", "forbidden"}
 
 # The CLIENT_SECRETS_FILE variable specifies the name of a file that contains
 # the OAuth 2.0 information for this application, including its client_id and
@@ -88,58 +91,36 @@ def YoutubeArgs():
 def get_authenticated_service():
     creds = None
 
-    # Check if credentials file exists and load if valid
+    # Gracefully handle missing/empty/invalid credentials
     if os.path.exists(CREDENTIALS_FILE):
-        if os.stat(CREDENTIALS_FILE).st_size == 0:
-            print("Credentials file is empty.")
-        else:
+        if os.stat(CREDENTIALS_FILE).st_size > 0:
             try:
-                print("Loading credentials from file...")
-                with open(CREDENTIALS_FILE, 'r') as token:
-                    creds_data = json.load(token)
-                    creds = Credentials.from_authorized_user_info(creds_data, SCOPES)
-            except json.decoder.JSONDecodeError as e:
-                print("Error decoding credentials file. Treating as no credentials available:", e)
-                creds = None
-
-    # If credentials are not available or invalid, handle refresh or re-auth
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            try:
-                print("Refreshing expired credentials...")
-                creds.refresh(Request())
-                print("Credentials refreshed successfully.")
+                with open(CREDENTIALS_FILE, "r") as fh:
+                    creds = Credentials.from_authorized_user_info(json.load(fh), SCOPES)
             except Exception as e:
-                print("Failed to refresh credentials:", e)
-                creds = None
-                try:
-                    os.remove(CREDENTIALS_FILE)
-                    print("Corrupted credentials file removed.")
-                except Exception as cleanup_err:
-                    print("Failed to remove corrupted credentials file:", cleanup_err)
+                logging.warning("Failed to read credentials; will reauth: %s", e)
 
-        # If still no valid creds, force re-authentication
-        if not creds or not creds.valid:
-            print("No valid credentials found. Starting OAuth flow...")
-            flow = InstalledAppFlow.from_client_secrets_file(
-                CLIENT_SECRETS_FILE,
-                SCOPES
-            )
-            # Ensure refresh_token is issued
-            creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
-            print("OAuth flow complete. Credentials obtained.")
+    # Refresh if we can, otherwise run flow
+    if creds and creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+        except Exception as e:
+            logging.warning("Token refresh failed; falling back to OAuth: %s", e)
+            creds = None  # force flow
 
-            # Save credentials
-            with open(CREDENTIALS_FILE, 'w') as token:
-                token.write(creds.to_json())
-                print("Credentials saved to file.")
+    if not creds or not creds.valid:
+        flow = InstalledAppFlow.from_client_secrets_file(str(CLIENT_SECRETS_FILE), SCOPES)
+        # Ensure a refresh_token is issued:
+        creds = flow.run_local_server(port=0, access_type='offline', prompt='consent')
 
-    # Debug info
-    print("Token expired:", creds.expired)
-    print("Refresh token present:", creds.refresh_token is not None)
+        # Save to disk atomically
+        tmp = str(CREDENTIALS_FILE) + ".tmp"
+        with open(tmp, "w") as fh:
+            fh.write(creds.to_json())
+        os.replace(tmp, CREDENTIALS_FILE)
 
-    print("Authenticated service is ready.")
-    return build(API_SERVICE_NAME, API_VERSION, credentials=creds)
+    # Build YouTube client (disable discovery cache to avoid file writes)
+    return build("youtube", "v3", credentials=creds, cache_discovery=False)
 
 
 
@@ -188,11 +169,11 @@ def resumable_upload(request):
   retry = 0
   while response is None:
     try:
-      print('Uploading file...')
+      logging.info('Uploading file...')
       status, response = request.next_chunk()
       if response is not None:
         if 'id' in response:
-          print('Video id "%s" was successfully uploaded.' % response['id'])
+          logging.info('Video id "%s" was successfully uploaded.' % response['id'])
           return response['id']
         else:
           exit('The upload failed with an unexpected response: %s' % response)
@@ -206,23 +187,22 @@ def resumable_upload(request):
       error = 'A retriable error occurred: %s' % e
 
     if error is not None:
-      print(error)
+      logging.info(error)
       retry += 1
       if retry > MAX_RETRIES:
         exit('No longer attempting to retry.')
 
       max_sleep = 2 ** retry
       sleep_seconds = random.random() * max_sleep
-      print ('Sleeping %f seconds and then retrying...' % sleep_seconds)
+      logging.info ('Sleeping %f seconds and then retrying...' % sleep_seconds)
       time.sleep(sleep_seconds)
 
 def scheduled_upload_video(youtube, videodata_file_path, posted_vid_list, args):
-  with open (posted_vid_list) as f:
-    posted_vids = [line.rstrip('\n') for line in f]
+  posted_vids = _read_posted_list(posted_vid_list)
 
-  print("Posted vid list retrieved")
+  logging.info("Posted vid list retrieved")
   videodata_list = parse_videodata(videodata_file_path)
-  print("Video data list retrieved")
+  logging.info("Video data list retrieved")
 
   video_uploaded = False # Flag to track if a video was uploaded
 
@@ -232,17 +212,20 @@ def scheduled_upload_video(youtube, videodata_file_path, posted_vid_list, args):
         continue # Skip already posted or incomplete videos
 
       if not os.path.exists(vid['File Path']):
-        print(f"Skipping {vid['File Path']} - file does not exist.")
+        logging.info(f"Skipping {vid['File Path']} - file does not exist.")
         continue
 
-      print("Unposted video found, proceeding to post")
+      logging.info("Unposted video found, proceeding to post")
       
       args.file = vid['File Path']
       args.title = vid['Title']
       args.description = vid['Descripition'] + '\n' + config.YOUTUBE_HASHTAGS 
-      args.keywords = config.YOUTUBE_TAGS
+      args.keywords = (
+          config.YOUTUBE_TAGS if isinstance(config.YOUTUBE_TAGS, str)
+          else ",".join(config.YOUTUBE_TAGS)
+      )
 
-      print("Arguements for upload retrieved")
+      logging.info("Arguements for upload retrieved")
 
       try:
         # Upload and retrieve video ID
@@ -254,36 +237,41 @@ def scheduled_upload_video(youtube, videodata_file_path, posted_vid_list, args):
           vid["ThumbnailSet"] = False
 
         # Save updated video metadata to file
-        with open(videodata_file_path, "w", encoding="utf-8") as f:
-          json.dump(videodata_list, f, indent=4)
+        _json_dump_atomic(videodata_list, videodata_file_path)
 
 
       except (HttpError) as e:
-        print('An HTTP error %d occurred:\n%s' % (e.resp.status, e.content))
-        print(vid+' failed to upload')
-        break
+        reason = _extract_reason(e)
+        status = getattr(e.resp, "status", None)
+        if status in RETRIABLE_STATUS_CODES or reason in RETRIABLE_REASONS:
+            logging.warning("Transient error (%s/%s). Will retry via scheduler.", status, reason)
+            return False
+        if status == 403 and reason in FATAL_403_REASONS:
+            logging.error("Quota/Rate limit hit (%s). Skipping this cycle.", reason)
+            return False
+        logging.exception("Non-retriable HTTP error")
+        return False
 
       
 
       if vid['File Path'] not in posted_vids:
-        #After posting video, add video to list to avoid posting same video twice
-        with open(posted_vid_list, "a") as f:
-          f.write(vid['File Path'] + "\n")
-        print(vid['File Path'] + ' successfully uploaded')
+        # After posting, append atomically to avoid partial writes
+        _append_posted_atomic(posted_vid_list, vid['File Path'])
+       logging.info(vid['File Path'] + ' successfully uploaded')
       
       video_uploaded = True
       break
 
     # If no videos were uploaded, print a message
     if not video_uploaded:
-      print("All available videos have been posted.") 
+      logging.info("All available videos have been posted.") 
 
     return video_uploaded
       
   except Exception as e:
     if "invalid_grant" in str(e):
       raise
-    print (str(e))
+    logging.info (str(e))
 
 def set_thumbnails(youtube, videodata_path):
     
@@ -293,12 +281,13 @@ def set_thumbnails(youtube, videodata_path):
     updated = False
 
     for vid in data:
-        if not vid.get("Thumbnail") or not os.path.exists(vid["Thumbnail"]):
+        if not _file_exists(vid.get("Thumbnail")):
+            logging.warning("Thumbnail missing for %s; skipping.", vid.get("File Path"))
             continue
         if vid.get("ThumbnailSet") == True:
             continue
         if "VideoId" not in vid:
-            print(f"Skipping {vid['File Path']}: No video ID found.")
+            logging.info(f"Skipping {vid['File Path']}: No video ID found.")
             continue
 
         try:
@@ -307,13 +296,48 @@ def set_thumbnails(youtube, videodata_path):
                 media_body=vid["Thumbnail"]
             )
             response = request.execute()
-            print(f"Thumbnail set for video {vid['VideoId']}")
+            logging.info(f"Thumbnail set for video {vid['VideoId']}")
             vid["ThumbnailSet"] = True
             updated = True
         except Exception as e:
-            print(f"Failed to set thumbnail for {vid['File Path']}: {e}")
+            logging.info(f"Failed to set thumbnail for {vid['File Path']}: {e}")
 
     if updated:
-        with open(videodata_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4)
+        _json_dump_atomic(data, videodata_path)
+
+def _read_posted_list(path):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return [line.rstrip("\n") for line in f]
+    except FileNotFoundError:
+        return []
+
+def _append_posted_atomic(path, line):
+    # atomic append (simple on POSIX): write+replace
+    tmp = str(path) + ".tmp"
+    existing = _read_posted_list(path)
+    if line in existing:
+        return
+    existing.append(line)
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("\n".join(existing) + "\n")
+    os.replace(tmp, path)
  
+def _extract_reason(http_error):
+    try:
+        err = json.loads(http_error.content.decode("utf-8"))
+        return err["error"]["errors"][0].get("reason")
+    except Exception:
+        return None
+
+def _file_exists(p):
+    try:
+        return os.path.exists(p) and os.path.getsize(p) > 0
+    except Exception:
+        return False
+
+def _json_dump_atomic(obj, path):
+    tmp = str(path) + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(obj, f, indent=4)
+    os.replace(tmp, path)
