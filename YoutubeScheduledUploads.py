@@ -41,8 +41,7 @@ video_args = None
 
 def set_active_event(event_name: str):
     """Set the active event via env and reload config (keeps your current pattern)."""
-    os.environ["EVENT_NAME"] = event_name
-    importlib.reload(config)
+    config.set_event_name(event_name)
     logging.info("Switched event to: %s", event_name)
 
 def switch_to_next_event():
