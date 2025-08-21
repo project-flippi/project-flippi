@@ -157,7 +157,7 @@ def provide_image(title):
         
     prompt = (
         f"Design a bright and colorful thumbnail for a compilation of clips from the event {event_title} which takes place in a {venue_desc}"
-        f"The style should be inspired by retro arcade aesthetics, include items such as floating platforms, gamecube controllers, CRTs, and similar."
+        f"The style should be inspired by retro arcade aesthetics, include items such as floating platforms, dolphins, frogs, gamecube controllers, CRTs, and similar."
     )
     print(prompt)
 

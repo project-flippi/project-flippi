@@ -8,7 +8,7 @@ import yt_dlp
 
 
 # Replace with your own values or import from your config module
-YOUTUBE_API_KEY = 'AIzaSyBnomFda1JY0e-XSwqC78ZDtk0pHubpo_s'
+YOUTUBE_API_KEY = 1
 CHANNEL_ID = 'UC5L50fy_SW5By2lOeJbZ9cQ'
 YOUTUBE_API_SERVICE_NAME = 'youtube'
 YOUTUBE_API_VERSION = 'v3'

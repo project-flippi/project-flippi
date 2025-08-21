@@ -19,6 +19,7 @@ KEY_FILE      = "File Path"
 KEY_TITLE     = "Title"
 KEY_PROMPT    = "Prompt"
 KEY_DESC      = "Descripition"  # keep current spelling for compatibility
+KEY_TAG       = "Tag"
 
 # Combo text file timestamps may vary; we normalize new videodata timestamps to this:
 TS_FMT = "%Y-%m-%d %H-%M-%S"  # matches "Replay YYYY-MM-DD HH-MM-SS.mp4"
@@ -161,11 +162,11 @@ def write_title_prompt(combo: Dict[str, Any]) -> str:
         punished = next((p for p in combo['Players'] if p.get('playerIndex') == combo['CatcherIndex']), None)
         attacker = next((p for p in combo['Players'] if p.get('playerIndex') != combo['CatcherIndex']), None)
 
-        punished_name = (punished or {}).get('displayName') or 'Player 2'
+        punished_name = (punished or {}).get('nametag') or 'Player 2'
         punished_char_id = (punished or {}).get('characterId')
         punished_char = character_dict.get(str(punished_char_id), {}).get('name', 'Unknown')
 
-        attacker_name = (attacker or {}).get('displayName') or 'Player 1'
+        attacker_name = (attacker or {}).get('nametag') or 'Player 1'
         attacker_char_id = (attacker or {}).get('characterId')
         attacker_char = character_dict.get(str(attacker_char_id), {}).get('name', 'Unknown')
 
@@ -196,6 +197,17 @@ def write_title_prompt(combo: Dict[str, Any]) -> str:
         logger.warning("Failed to build title prompt: %s", e)
         return "Hype Melee combo!"
 
+def get_attacker_tag(combo: Dict[str, Any]) -> str:
+    """
+    get the attacker's name tag if one is being used, returns none if none is being used
+    """
+    try:
+        attacker = next((p for p in combo['Players'] if p.get('playerIndex') != combo['CatcherIndex']), None)
+        attacker_tag = (attacker or {}).get('nametag') or None
+        return attacker_tag
+    except Exception as e:
+        logger.warning("Failed to retrieve tag or return None")
+
 def write_video_titles(combodata_file_path: str, videodata_file_path: str) -> None:
     """
     Generate AI titles for each combo not yet represented in videodata.
@@ -222,12 +234,15 @@ def write_video_titles(combodata_file_path: str, videodata_file_path: str) -> No
         title_resp = provide_AI_title(prompt)
         title = (title_resp or "").strip('"')
 
+        tag = get_attacker_tag(c)
+
         entry = {
             KEY_TIMESTAMP: ts_norm,
             KEY_FILE: None,
             KEY_TITLE: title,
             KEY_PROMPT: prompt,
             KEY_DESC: None,  # to be filled later
+            KEY_TAG: tag,
         }
         newlist.append(entry)
         added += 1
@@ -314,12 +329,7 @@ def find_closest_video_file(timestamp: str, video_folder_path: str, used_files: 
     return None
 
 def pair_videodata_with_videofiles(videodata_file_path: str, video_folder_path: str) -> None:
-    """
-    For entries without KEY_FILE, find & assign the closest replay file path.
-    Does NOT rename files (filenames remain timestamp-based).
-    """
     video = parse_videodata(videodata_file_path)
-    newlist = video[:]
     used_files: set = set()
 
     paired = 0
@@ -336,8 +346,8 @@ def pair_videodata_with_videofiles(videodata_file_path: str, video_folder_path: 
         else:
             unmatched += 1
 
-    if newlist != video:
-        _json_dump_atomic(newlist, videodata_file_path)
+    if paired > 0:
+        _json_dump_atomic(video, videodata_file_path)
         logger.info(
             "Paired video files written: files_paired=%d unmatched=%d file=%s",
             paired, unmatched, videodata_file_path

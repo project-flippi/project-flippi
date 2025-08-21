@@ -257,7 +257,7 @@ def scheduled_upload_video(youtube, videodata_file_path, posted_vid_list, args):
       if vid['File Path'] not in posted_vids:
         # After posting, append atomically to avoid partial writes
         _append_posted_atomic(posted_vid_list, vid['File Path'])
-       logging.info(vid['File Path'] + ' successfully uploaded')
+        logging.info(vid['File Path'] + ' successfully uploaded')
       
       video_uploaded = True
       break

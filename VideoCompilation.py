@@ -47,7 +47,7 @@ def update_compilation_data(clip_titles, output_path):
     Title = provide_AI_comptitle(clip_titles)
     Desc = provide_AI_desc(Title)
     Title = Title.strip("\"")
-    Desc = "Come check out nouns.gg for more cool projects and opportunities!" +"\n\n" + Desc.strip("\"")
+    Desc = "Check out flippi.gg to register your tag to be eligible for combo rewards and learn more about Project Flippi!" +"\n\n" + Desc.strip("\"")
 
     #Create thumbnail
     thumbnail = provide_image(Title)
