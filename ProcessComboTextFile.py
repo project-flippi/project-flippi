@@ -14,12 +14,31 @@ logger = logging.getLogger(__name__)
 # ----------------------------
 # Field & timestamp constants
 # ----------------------------
-KEY_TIMESTAMP = "Timestamp"
+KEY_TIMESTAMP = "timestamp"
 KEY_FILE      = "File Path"
 KEY_TITLE     = "Title"
 KEY_PROMPT    = "Prompt"
 KEY_DESC      = "Descripition"  # keep current spelling for compatibility
-KEY_TAG       = "Tag"
+KEY_TRIGGER   = "trigger"
+KEY_SOURCE    = "source"
+KEY_PHASE     = "phase"
+KEY_ACTIVE    = "active"
+KEY_EVENT     = "event"
+KEY_COMBO     = "combo"
+KEY_PLAYERS   = "players"
+KEY_PLAYER_IN = "playerIndex"
+KEY_START_PER = "startPercent"
+KEY_CUR_PER   = "currentPercent"
+KEY_END_PER   = "endPercent"
+KEY_MOVES     = "moves"
+KEY_MOVE_ID   = "moveId"
+KEY_DID_KILL  = "didKill"
+KEY_SETTINGS  = "settings"
+KEY_STAGE_ID  = "stageId"
+KEY_PORT      = "port"
+KEY_CHAR_ID   = "characterId"
+KEY_TAG       = "nametag"
+
 
 # Combo text file timestamps may vary; we normalize new videodata timestamps to this:
 TS_FMT = "%Y-%m-%d %H-%M-%S"  # matches "Replay YYYY-MM-DD HH-MM-SS.mp4"
@@ -51,9 +70,161 @@ def _parse_dt_loose(ts_str: str) -> Optional[datetime.datetime]:
             continue
     return None
 
+def get_timestamp(combo: dict) -> str | None:
+    try:
+        return combo[KEY_TIMESTAMP]
+    except (KeyError, TypeError):
+        return None 
+
+def get_trigger(combo: dict) -> str | None:
+    try:
+        return combo[KEY_TRIGGER]
+    except (KeyError, TypeError):
+        return None
+
+def get_source(combo: dict) -> str | None:
+    try:
+        return combo[KEY_SOURCE]
+    except (KeyError, TypeError):
+        return None
+
+def get_phase(combo: dict) -> str | None:
+    try:
+        return combo[KEY_PHASE]
+    except (KeyError, TypeError):
+        return None
+
+def get_start_percent(combo: dict) -> float | None:
+    try:
+        return combo[KEY_EVENT][KEY_COMBO][KEY_START_PER]
+    except (KeyError, TypeError):
+        return None
+
+def get_current_percent(combo: dict) -> float | None:
+    try:
+        return combo[KEY_EVENT][KEY_COMBO][KEY_CUR_PER]
+    except (KeyError, TypeError):
+        return None
+
+def get_end_percent(combo: dict) -> float | None:
+    try:
+        return combo[KEY_EVENT][KEY_COMBO][KEY_END_PER]
+    except (KeyError, TypeError):
+        return None
+
+def get_defender_index(combo: dict) -> int | None:
+    try:
+        return combo[KEY_EVENT][KEY_COMBO][KEY_PLAYER_IN]
+    except (KeyError, TypeError):
+        return None
+
+def get_moves(combo: dict) -> List[Dict[str, Any]] | None:
+    try:
+        return combo[KEY_EVENT][KEY_COMBO][KEY_MOVES]
+    except (KeyError, TypeError):
+        return None
+
+def get_attacker_index(combo: dict) -> int | None:
+    try:
+        return combo[KEY_EVENT][KEY_COMBO][KEY_MOVES][0][KEY_PLAYER_IN]
+    except (KeyError, TypeError):
+        return None
+
+def get_did_kill(combo: dict) -> bool | None:
+    try:
+        return combo[KEY_EVENT][KEY_COMBO][KEY_DID_KILL]
+    except (KeyError, TypeError):
+        return None
+
+def get_stage_id(combo: dict) -> int | None:
+    try:
+        return combo[KEY_EVENT][KEY_SETTINGS][KEY_STAGE_ID]
+    except (KeyError, TypeError):
+        return None
+
+def get_players(combo: dict) -> dict | None:
+    try:
+        return combo[KEY_EVENT][KEY_SETTINGS][KEY_PLAYERS]
+    except (KeyError, TypeError):
+        return None
+
+def _find_player_by_index(players: List[Dict[str, Any]], idx: int) -> Optional[Dict[str, Any]]:
+    for p in players or []:
+        if p.get(KEY_PLAYER_IN) == idx:
+            return p
+    return None
+
+def get_defender_char_id(combo: dict) -> int | None:
+    try:
+        defender_index=get_defender_index(combo)
+        players=get_players(combo)
+        p=_find_player_by_index(players, defender_index)
+        return p.get(KEY_CHAR_ID)
+    except (KeyError, TypeError):
+        return None
+
+def get_defender_port(combo: dict) -> int | None:
+    try:
+        defender_index=get_defender_index(combo)
+        players=get_players(combo)
+        p=_find_player_by_index(players, defender_index)
+        return p.get(KEY_PORT)
+    except (KeyError, TypeError):
+        return None
+
+def get_defender_nametag(combo: dict) -> int | None:
+    try:
+        defender_index=get_defender_index(combo)
+        players=get_players(combo)
+        p=_find_player_by_index(players, defender_index)
+        return p.get(KEY_TAG)
+    except (KeyError, TypeError):
+        return None
+
+def get_attacker_char_id(combo: dict) -> int | None:
+    try:
+        attacker_index=get_attacker_index(combo)
+        players=get_players(combo)
+        p=_find_player_by_index(players, attacker_index)
+        return p.get(KEY_CHAR_ID)
+    except (KeyError, TypeError):
+        return None
+
+def get_attacker_port(combo: dict) -> int | None:
+    try:
+        attacker_index=get_attacker_index(combo)
+        players=get_players(combo)
+        p=_find_player_by_index(players, attacker_index)
+        return p.get(KEY_PORT)
+    except (KeyError, TypeError):
+        return None
+
+def get_attacker_nametag(combo: dict) -> int | None:
+    try:
+        attacker_index=get_attacker_index(combo)
+        players=get_players(combo)
+        p=_find_player_by_index(players, attacker_index)
+        return p.get(KEY_TAG)
+    except (KeyError, TypeError):
+        return None
+
+def get_character(index: int) -> str | None:
+    try:
+        return character_dict.get(str(index), {}).get('name', 'Unknown')
+    except (KeyError, TypeError):
+        return None
+
+def get_stage_name(index: int) -> str | None:
+    try:
+        return stage_dict.get(str(index), "Unknown Stage")
+    except (KeyError, TypeError):
+        return None
+
+
 # ----------------------------
 # Parsers
 # ----------------------------
+
 def parse_combos(file_path: str) -> List[Dict[str, Any]]:
     """
     Parse the combo text file and return a list of combo dicts.
@@ -123,6 +294,19 @@ def parse_combos(file_path: str) -> List[Dict[str, Any]]:
     logger.info("Parsed combos: count=%d from %s", len(combolist), file_path)
     return combolist
 
+def parse_combos_new(file_path: str) -> List[Dict[str, Any]]:
+    """
+    Read a .jsonl file (one JSON object per line) and return a list of combo dicts.
+    Assumes all keys are already in the expected format.
+    """
+    combos: List[Dict[str, Any]] = []
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            combos.append(json.loads(line))
+    return combos
 
 def parse_videodata(file_path: str) -> List[Dict[str, Any]]:
     """
@@ -158,24 +342,32 @@ def write_title_prompt(combo: Dict[str, Any]) -> str:
     Build a human-readable prompt from a parsed combo using resources mappings.
     """
     try:
-        total_percent = int(round(combo['EndPercent'] - combo['StartPercent'], 0))
-        punished = next((p for p in combo['Players'] if p.get('playerIndex') == combo['CatcherIndex']), None)
-        attacker = next((p for p in combo['Players'] if p.get('playerIndex') != combo['CatcherIndex']), None)
+        if get_end_percent(combo) is None:
+            percent = get_current_percent(combo)
+        else:
+            percent = get_end_percent(combo)
+        total_percent = int(round(percent - get_start_percent(combo), 0))
 
-        punished_name = (punished or {}).get('nametag') or 'Player 2'
-        punished_char_id = (punished or {}).get('characterId')
-        punished_char = character_dict.get(str(punished_char_id), {}).get('name', 'Unknown')
+        punished_name = get_defender_nametag(combo) or "Player " + str(get_defender_port(combo))
+        punished_char_id = get_defender_char_id(combo)
+        punished_char = get_character(punished_char_id)
 
-        attacker_name = (attacker or {}).get('nametag') or 'Player 1'
-        attacker_char_id = (attacker or {}).get('characterId')
-        attacker_char = character_dict.get(str(attacker_char_id), {}).get('name', 'Unknown')
+        attacker_name = get_attacker_nametag(combo) or "Player " + str(get_attacker_port(combo))
+        attacker_char_id = get_attacker_char_id(combo)
+        attacker_char = get_character(attacker_char_id)
 
         # Stage name
-        stage_id = combo.get("StageID")
-        stage_name = stage_dict.get(str(stage_id), "Unknown Stage")
+        stage_id = get_stage_id(combo)
+        stage_name = get_stage_name(stage_id)
+
+        #Did Ko
+        did_KO = get_did_kill(combo)
+
+        #what triggered clip
+        trigger = get_trigger(combo)
 
         # Move sequence
-        moves = combo.get("Moves") or []
+        moves = get_moves(combo) or []
         seq_names = []
         for m in moves[:-1]:
             move_id = str(m.get("moveId"))
@@ -192,21 +384,24 @@ def write_title_prompt(combo: Dict[str, Any]) -> str:
         else:
             parts.append(f"Finisher: {last_move}.")
 
+        parts.append(f"Did KO: {did_KO}")
+        parts.append(f"Trigger: {trigger}")
+
         return " ".join(parts)
     except Exception as e:
         logger.warning("Failed to build title prompt: %s", e)
         return "Hype Melee combo!"
 
-def get_attacker_tag(combo: Dict[str, Any]) -> str:
-    """
-    get the attacker's name tag if one is being used, returns none if none is being used
-    """
+"""def get_attacker_tag(combo: Dict[str, Any]) -> str:
+   
+    #get the attacker's name tag if one is being used, returns none if none is being used
+    
     try:
         attacker = next((p for p in combo['Players'] if p.get('playerIndex') != combo['CatcherIndex']), None)
         attacker_tag = (attacker or {}).get('nametag') or None
         return attacker_tag
     except Exception as e:
-        logger.warning("Failed to retrieve tag or return None")
+        logger.warning("Failed to retrieve tag or return None")"""
 
 def write_video_titles(combodata_file_path: str, videodata_file_path: str) -> None:
     """
@@ -379,3 +574,10 @@ def correct_video_data_structure(videodata_file_path: str) -> None:
         logger.info("correct_video_data_structure: entries_changed=%d file=%s", changed, videodata_file_path)
     else:
         logger.info("correct_video_data_structure: no changes needed.")
+
+combos = parse_combos_new('C:/Users/15613/Desktop/combodata.jsonl')
+combo = combos[0]
+
+print(get_stage_id(combo))
+
+print(write_title_prompt(combo))
