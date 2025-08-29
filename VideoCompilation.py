@@ -1,4 +1,4 @@
-from ProcessComboTextFile import parse_videodata
+from ProcessComboTextFile import parse_videodata, parse_jsonl, write_jsonl_atomic, append_jsonl
 import os
 import subprocess
 import config
@@ -13,15 +13,15 @@ from typing import List, Tuple, Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 #shared keys
-KEY_FILE  = "File Path"
-KEY_TITLE = "Title"
-KEY_DESC  = "Descripition"
+KEY_FILE      = "file path"
+KEY_TITLE     = "title"
+KEY_DESC      = "description"
 KEY_USED  = "Used in Compilation"
 KEY_FIXED = "Metadata Fixed"
 KEY_CLIPTITLES = "ClipTitles"
 KEY_CLIPFILES = "ClipFilePaths"
 
-def update_compilation_data(clip_titles, output_path, clip_file_paths: Optional[List[str]] = None):
+def update_compilation_data_old(clip_titles, output_path, clip_file_paths: Optional[List[str]] = None):
     """
     Updates the COMP_DATA file with the dictionary for the compilation.
     
@@ -85,7 +85,57 @@ def update_compilation_data(clip_titles, output_path, clip_file_paths: Optional[
     _json_dump_atomic(comp_data, config.COMP_DATA)
     logger.info("Updated %s with new compilation data.", config.COMP_DATA)
 
-def select_clips_for_compilation(video_data, min_length=50, max_length=305):
+def update_compilation_data(
+    clip_titles: List[str],
+    output_path,
+    clip_file_paths: Optional[List[str]] = None
+) -> None:
+    """
+    Appends a single compilation record to COMP_DATA (.jsonl).
+    Each compilation is one JSON object per line.
+    """
+    # Normalize paths to forward slashes for portability
+    output_path_str = str(output_path).replace("\\", "/")
+
+    # Generate title/desc (same behavior you had)
+    Title = provide_AI_comptitle(clip_titles)
+    Desc  = provide_AI_desc(Title)
+    Title = (Title or "").strip().strip('"')
+    Desc  = (
+        "Check out flippi.gg to register your tag to be ...and learn more about Project Flippi!"
+        "\n\n" + (Desc or "").strip().strip('"')
+    )
+
+    # Create thumbnail (keep your fallback logic)
+    thumbnail = provide_image(Title)
+    if thumbnail is None:
+        fallback = config.THUMBNAILS_FOLDER / "image.png"
+        thumbnail = fallback if Path(fallback).exists() else None
+
+    thumbnail_str = str(thumbnail).replace("\\", "/") if thumbnail is not None else None
+
+    # Normalize clip file paths if provided
+    clip_file_paths = clip_file_paths or []
+    clip_file_paths = [str(p).replace("\\", "/") for p in clip_file_paths]
+
+    compilation_dict = {
+        KEY_FILE:       output_path_str,
+        KEY_TITLE:      Title,
+        KEY_DESC:       Desc,
+        KEY_CLIPTITLES: clip_titles,
+        KEY_CLIPFILES:  clip_file_paths,
+    }
+    if thumbnail_str:
+        compilation_dict["Thumbnail"] = thumbnail_str
+
+    # Append one JSON object to the JSONL file
+    try:
+        append_jsonl(config.COMP_DATA, [compilation_dict])
+        logger.info("Appended new compilation record to %s", config.COMP_DATA)
+    except Exception as e:
+        logger.error("Failed to append compilation data: %s", e)
+
+def select_clips_for_compilation_old(video_data, min_length=50, max_length=305):
     """
     Selects video clips sequentially until adding a clip would exceed max_length.
     Stops immediately once an overflow would happen.
@@ -149,6 +199,79 @@ def select_clips_for_compilation(video_data, min_length=50, max_length=305):
     else:
         logger.info("Compilation too short: %.2fs (minimum required: %ss).", total_duration, min_length)
         return None, video_data
+
+def select_clips_for_compilation(
+    video_rows: List[dict],
+    min_length: int = 50,
+    max_length: int = 305,
+) -> tuple[Optional[List[Tuple[str, float]]], List[dict]]:
+    """
+    Selects video clips sequentially until adding a clip would exceed max_length.
+    Stops immediately once an overflow would happen.
+
+    :param video_rows: List of videodata rows (each a dict) from a .jsonl file.
+    :param min_length: Minimum total length required for a compilation (seconds).
+    :param max_length: Maximum total length allowed for a compilation (seconds).
+    :return: (selected_clips, updated_rows) or (None, original_rows) if not enough.
+             selected_clips = [(file_path, duration_sec), ...]
+    """
+    # Filter to only unused clips
+    unused_clips = [clip for clip in video_rows if not clip.get(KEY_USED, False)]
+
+    if not unused_clips:
+        logger.info("No unused clips available.")
+        return None, video_rows
+
+    # Sort by timestamp (oldest first); fall back to raw string if parse fails
+    try:
+        unused_clips.sort(
+            key=lambda c: (_parse_dt_loose(c.get(KEY_TIMESTAMP, "")) or c.get(KEY_TIMESTAMP, ""))
+        )
+    except Exception as e:
+        logger.warning("Error sorting clips by timestamp: %s", e)
+
+    selected_clips: List[Tuple[str, float]] = []
+    total_duration = 0.0
+    # Shallow copy so we can mark selections while leaving the original reference intact
+    updated_rows = [dict(clip) for clip in video_rows]
+
+    for clip in unused_clips:
+        file_path = clip.get(KEY_FILE)
+        if not file_path or not os.path.exists(file_path):
+            continue
+
+        # Probe duration with ffprobe
+        try:
+            cmd = [
+                "ffprobe", "-v", "error", "-select_streams", "v:0",
+                "-show_entries", "format=duration", "-of",
+                "default=noprint_wrappers=1:nokey=1", file_path
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            duration = float(result.stdout.strip())
+        except Exception:
+            logger.info("Skipping %s: Could not determine duration.", file_path)
+            continue
+
+        # If adding this clip would exceed max_length, stop immediately
+        if total_duration + duration > max_length:
+            logger.info("Stopping: adding %s (%.2fs) would exceed max_length.", file_path, duration)
+            break
+
+        selected_clips.append((file_path, duration))
+        total_duration += duration
+
+        # Mark as used in the corresponding row of updated_rows
+        for row in updated_rows:
+            if row.get(KEY_FILE) == file_path:
+                row[KEY_USED] = True
+                break  # efficient exit
+
+    if total_duration >= min_length and selected_clips:
+        return selected_clips, updated_rows
+    else:
+        logger.info("Compilation too short: %.2fs (minimum required: %ss).", total_duration, min_length)
+        return None, video_rows
 
 def create_compilation(selected_clips, output_path):
     """
@@ -245,8 +368,8 @@ def get_clip_titles_from_selected(selected_clips, full_video_data):
     titles = []
     for file_path, _ in selected_clips:
         for clip in full_video_data:
-            if clip.get("File Path") == file_path:
-                titles.append(clip.get("Title", ""))
+            if clip.get(KEY_FILE) == file_path:
+                titles.append(clip.get(KEY_TITLE, ""))
                 break
     return titles
 
@@ -285,13 +408,13 @@ def generate_compilation_from_videodata(videodata_path):
     ct = ct.replace(":", "-")
     filename = ct + ".mp4" 
     output_path = config.COMPS_FOLDER / filename
-    video_data = parse_videodata(videodata_path)  # Use the provided function
+    video_rows = parse_jsonl(videodata_path)  # Use the provided function
     selected_clips, updated_video_data = select_clips_for_compilation(video_data)
 
     if selected_clips:
         compilation_path = create_compilation(selected_clips, output_path)
         if compilation_path:
-            update_video_data(videodata_path, updated_video_data)
+            write_jsonl_atomic(videodata_path, updated_video_data)
             logger.info("Updated videodata.txt to mark used clips.")
             clip_titles = get_clip_titles_from_selected(selected_clips, updated_video_data)
             update_compilation_data(clip_titles, compilation_path, [fp for fp, _ in selected_clips])  # Update the COMP_DATA with compilation info
@@ -347,7 +470,90 @@ def fix_mp4_metadata(input_path, output_path=None):
         print("Error processing file:", e.stderr.decode())
         return None
 
-def fix_mp4_metadata_in_folder(folder_path, videodata_path=None):
+        
+def fix_mp4_metadata_in_folder(folder_path, videodata_path: Optional[str] = None):
+    """
+    Fix metadata for all MP4 files in a folder using fix_mp4_metadata().
+    If videodata_path is provided (JSONL), skip files already marked KEY_FIXED == True,
+    and mark entries as fixed immediately after successful processing (no probing).
+    """
+    folder_path = str(folder_path)
+
+    try:
+        mp4_files = [
+            os.path.join(folder_path, f).replace("\\", "/")
+            for f in os.listdir(folder_path)
+            if f.lower().endswith(".mp4")
+        ]
+    except FileNotFoundError:
+        logger.warning("Video folder not found: %s", folder_path)
+        return
+
+    # Load videodata (JSONL) if provided
+    videodata_rows = None
+    path_to_idx: dict[str, int] = {}
+    if videodata_path and os.path.exists(videodata_path):
+        try:
+            videodata_rows = parse_jsonl(videodata_path)  # -> List[dict]
+            # Build an index by absolute path (as stored in videodata)
+            for i, item in enumerate(videodata_rows):
+                if isinstance(item, dict):
+                    p = item.get(KEY_FILE)
+                    if p:
+                        path_to_idx[p] = i
+        except Exception as e:
+            logger.warning("Unable to read videodata from %s: %s", videodata_path, e)
+            videodata_rows = None
+
+    checked = 0
+    fixed_count = 0
+    skipped_already_fixed = 0
+    wrote_videodata = False
+
+    for mp4_file in mp4_files:
+        checked += 1
+
+        # If we have videodata, skip files already marked as fixed
+        if videodata_rows is not None and path_to_idx:
+            idx = path_to_idx.get(mp4_file)
+            if idx is not None:
+                entry = videodata_rows[idx]
+                if isinstance(entry, dict) and entry.get(KEY_FIXED) is True:
+                    skipped_already_fixed += 1
+                    logger.info("Skipping (already marked fixed): %s", mp4_file)
+                    continue
+
+        # Run the fixer (your existing ffmpeg-based function)
+        result = fix_mp4_metadata(mp4_file)
+
+        if result:
+            fixed_count += 1
+            # Immediately mark videodata as fixed (no probing)
+            if videodata_rows is not None and path_to_idx:
+                idx = path_to_idx.get(mp4_file)
+                if idx is not None and isinstance(videodata_rows[idx], dict):
+                    videodata_rows[idx][KEY_FIXED] = True
+                    wrote_videodata = True
+                else:
+                    logger.debug("File fixed but not found in videodata: %s", mp4_file)
+        else:
+            logger.warning("Failed to fix metadata for: %s", mp4_file)
+
+    logger.info(
+        "Metadata pass complete: checked=%d, fixed=%d, skipped_already_fixed=%d",
+        checked, fixed_count, skipped_already_fixed
+    )
+
+    # Persist videodata updates once at the end (rewrite JSONL atomically)
+    if videodata_path and videodata_rows is not None and wrote_videodata:
+        try:
+            write_jsonl_atomic(videodata_path, videodata_rows)
+            logger.info("Videodata updated with '%s': true flags.", KEY_FIXED)
+        except Exception as e:
+            logger.error("Failed to write updated videodata to %s: %s", videodata_path, e)
+
+
+def fix_mp4_metadata_in_folder_old(folder_path, videodata_path=None):
     """
     Fix metadata for all MP4 files in a folder using fix_mp4_metadata().
     If videodata_path is provided, skip files already marked "Metadata Fixed" == True,
