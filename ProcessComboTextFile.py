@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 # Field & timestamp constants
 # ----------------------------
 KEY_TIMESTAMP = "timestamp"
-KEY_FILE      = "File Path"
-KEY_TITLE     = "Title"
-KEY_PROMPT    = "Prompt"
-KEY_DESC      = "Descripition"  # keep current spelling for compatibility
+KEY_FILE      = "file path"
+KEY_TITLE     = "title"
+KEY_PROMPT    = "prompt"
+KEY_DESC      = "description"  # keep current spelling for compatibility
 KEY_TRIGGER   = "trigger"
 KEY_SOURCE    = "source"
 KEY_PHASE     = "phase"
@@ -46,12 +46,39 @@ TS_FMT = "%Y-%m-%d %H-%M-%S"  # matches "Replay YYYY-MM-DD HH-MM-SS.mp4"
 # ----------------------------
 # Small utilities
 # ----------------------------
-def _json_dump_atomic(obj: Any, path: str) -> None:
-    """Write JSON atomically to avoid partial writes."""
-    tmp = str(path) + ".tmp"
+def parse_jsonl(path: str) -> List[Dict[str, Any]]:
+    """Read a .jsonl file and return a list of dicts. Returns [] if file missing/empty."""
+    if not os.path.exists(path):
+        return []
+    items: List[Dict[str, Any]] = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            s = line.strip()
+            if not s:
+                continue
+            try:
+                items.append(json.loads(s))
+            except json.JSONDecodeError as e:
+                # Log and skip bad lines (don’t crash the whole run)
+                print(f"[!] Skipping invalid JSON in {os.path.basename(path)}: {e}")
+    return items
+
+def append_jsonl(path: str, rows: List[Dict[str, Any]]) -> None:
+    """Append one JSON object per line to a .jsonl file, creating the file if needed."""
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+def write_jsonl_atomic(path: str, rows: List[Dict[str, Any]]) -> None:
+    """Rewrite an entire .jsonl file atomically."""
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    tmp = f"{path}.tmp"
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(obj, f, indent=4)
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
     os.replace(tmp, path)
+
 
 def _parse_dt_loose(ts_str: str) -> Optional[datetime.datetime]:
     """
@@ -91,6 +118,12 @@ def get_source(combo: dict) -> str | None:
 def get_phase(combo: dict) -> str | None:
     try:
         return combo[KEY_PHASE]
+    except (KeyError, TypeError):
+        return None
+
+def get_combo(combo: dict) -> dict | None:
+    try:
+        return combo[KEY_EVENT][KEY_COMBO]
     except (KeyError, TypeError):
         return None
 
@@ -221,118 +254,6 @@ def get_stage_name(index: int) -> str | None:
         return None
 
 
-# ----------------------------
-# Parsers
-# ----------------------------
-
-def parse_combos(file_path: str) -> List[Dict[str, Any]]:
-    """
-    Parse the combo text file and return a list of combo dicts.
-    Each block begins after 'Timestamp:' and contains fields parsed via regex.
-    """
-    if not os.path.exists(file_path):
-        logger.warning("Combodata file not found: %s", file_path)
-        return []
-
-    with open(file_path, 'r', encoding="utf-8", errors="ignore") as file:
-        data = file.read()
-
-    combo_blocks = [block.strip() for block in data.split('Timestamp:') if block.strip()]
-    combolist: List[Dict[str, Any]] = []
-
-    for block in combo_blocks:
-        # Timestamp (accept either HH-MM-SS or HH:MM:SS in input)
-        ts_match = re.match(r'(\d{4}-\d{2}-\d{2} \d{2}[-:]\d{2}[-:]\d{2})', block)
-        timestamp_raw = ts_match.group(1) if ts_match else None
-        ts_dt = _parse_dt_loose(timestamp_raw) if timestamp_raw else None
-
-        # StageID
-        stage_match = re.search(r'StageID:\s*(\d+)', block)
-        stage_id = int(stage_match.group(1)) if stage_match else None
-
-        # Players (JSON list)
-        players_match = re.search(r'Players:\s*(\[[\s\S]*?\])', block)
-        try:
-            players = json.loads(players_match.group(1)) if players_match else []
-        except Exception:
-            players = []
-
-        # CatcherIndex
-        catcher_match = re.search(r'CatcherIndex:\s*(\d+)', block)
-        catcher_index = int(catcher_match.group(1)) if catcher_match else None
-
-        # Start/End percent
-        start_match = re.search(r'StartPercent:\s*([\d.]+)', block)
-        end_match   = re.search(r'EndPercent:\s*([\d.]+)', block)
-        start_percent = float(start_match.group(1)) if start_match else 0.0
-        end_percent   = float(end_match.group(1)) if end_match else 0.0
-
-        # DidKill
-        did_kill_match = re.search(r'DidKill:\s*(true|false)', block, re.IGNORECASE)
-        did_kill = (did_kill_match.group(1).lower() == 'true') if did_kill_match else False
-
-        # Moves (JSON list of objects with moveId, etc.) if present
-        moves_match = re.search(r'Moves:\s*(\[[\s\S]*?\])', block)
-        try:
-            moves = json.loads(moves_match.group(1)) if moves_match else []
-        except Exception:
-            moves = []
-
-        combo = {
-            KEY_TIMESTAMP: timestamp_raw,            # keep original raw string for traceability
-            "TimestampDT": ts_dt.isoformat() if ts_dt else None,  # helper for consumers
-            "StageID": stage_id,
-            "Players": players,
-            "CatcherIndex": catcher_index,
-            "StartPercent": start_percent,
-            "EndPercent": end_percent,
-            "DidKill": did_kill,
-            "Moves": moves,
-        }
-        combolist.append(combo)
-
-    logger.info("Parsed combos: count=%d from %s", len(combolist), file_path)
-    return combolist
-
-def parse_combos_new(file_path: str) -> List[Dict[str, Any]]:
-    """
-    Read a .jsonl file (one JSON object per line) and return a list of combo dicts.
-    Assumes all keys are already in the expected format.
-    """
-    combos: List[Dict[str, Any]] = []
-    with open(file_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            combos.append(json.loads(line))
-    return combos
-
-def parse_videodata(file_path: str) -> List[Dict[str, Any]]:
-    """
-    Parse videodata JSON into a list of dicts.
-    Missing/empty/invalid files return [] (callers will rewrite as needed).
-    """
-    if not os.path.exists(file_path):
-        logger.warning("Videodata not found: %s (returning empty list)", file_path)
-        return []
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        data = f.read().strip()
-
-    if not data:
-        logger.warning("Videodata empty: %s (returning empty list)", file_path)
-        return []
-
-    try:
-        obj = json.loads(data)
-        if isinstance(obj, list):
-            return obj
-        logger.warning("Videodata not a list: %s (returning empty list)", file_path)
-        return []
-    except json.JSONDecodeError as e:
-        logger.warning("Error decoding videodata %s: %s (returning empty list)", file_path, e)
-        return []
 
 # ----------------------------
 # Prompt & title/desc writers
@@ -380,7 +301,7 @@ def write_title_prompt(combo: Dict[str, Any]) -> str:
             f"Damage dealt: ~{total_percent}%.",
         ]
         if seq_names:
-            parts.append(f"Sequence: {', '.join(seq_names)} → {last_move}.")
+            parts.append(f"Sequence: {', '.join(seq_names)} → Finisher: {last_move}.")
         else:
             parts.append(f"Finisher: {last_move}.")
 
@@ -392,86 +313,100 @@ def write_title_prompt(combo: Dict[str, Any]) -> str:
         logger.warning("Failed to build title prompt: %s", e)
         return "Hype Melee combo!"
 
-"""def get_attacker_tag(combo: Dict[str, Any]) -> str:
-   
-    #get the attacker's name tag if one is being used, returns none if none is being used
-    
-    try:
-        attacker = next((p for p in combo['Players'] if p.get('playerIndex') != combo['CatcherIndex']), None)
-        attacker_tag = (attacker or {}).get('nametag') or None
-        return attacker_tag
-    except Exception as e:
-        logger.warning("Failed to retrieve tag or return None")"""
-
 def write_video_titles(combodata_file_path: str, videodata_file_path: str) -> None:
     """
-    Generate AI titles for each combo not yet represented in videodata.
-    Initialize descriptions as None and store the raw Prompt used.
-    New entries will normalize Timestamp to TS_FMT.
+    Generate AI titles for each combo not yet represented in videodata (.jsonl).
+    Initializes descriptions as None and stores the raw Prompt used.
+    Normalizes timestamp to TS_FMT for storage in videodata.
     """
-    combos = parse_combos(combodata_file_path)
-    video = parse_videodata(videodata_file_path)
-    newlist = video[:]
+    # Combos are already JSONL via your new parse_combos
+    combos = parse_jsonl(combodata_file_path)
 
+    # Videodata is now JSONL too
+    video_rows = parse_jsonl(videodata_file_path)
+    seen_ts = {v.get(KEY_TIMESTAMP) for v in video_rows if isinstance(v, dict)}
+
+    new_entries: List[Dict[str, Any]] = []
     added = 0
-    seen_ts = {v.get(KEY_TIMESTAMP) for v in video}
 
     for c in combos:
-        ts_raw = c.get(KEY_TIMESTAMP)
+        ts_raw = get_timestamp(c)
+        if not ts_raw:
+            continue
         if ts_raw in seen_ts:
             continue
 
         # Normalize timestamp for storage in videodata
-        ts_dt = _parse_dt_loose(ts_raw) if ts_raw else None
-        ts_norm = ts_dt.strftime(TS_FMT) if ts_dt else ts_raw or ""
+        ts_dt = _parse_dt_loose(ts_raw)
+        ts_norm = ts_dt.strftime(TS_FMT) if ts_dt else ts_raw
 
         prompt = write_title_prompt(c)
         title_resp = provide_AI_title(prompt)
+        # guard against accidental wrapping quotes / whitespace
         title = (title_resp or "").strip('"')
-
-        tag = get_attacker_tag(c)
 
         entry = {
             KEY_TIMESTAMP: ts_norm,
             KEY_FILE: None,
             KEY_TITLE: title,
             KEY_PROMPT: prompt,
-            KEY_DESC: None,  # to be filled later
-            KEY_TAG: tag,
+            KEY_DESC: None,      # fill later
+            KEY_TAG: get_attacker_nametag(c),
+            KEY_STAGE_ID: get_stage_id(c),
+            KEY_COMBO: get_combo(c)
         }
-        newlist.append(entry)
-        added += 1
 
-    if newlist != video:
-        _json_dump_atomic(newlist, videodata_file_path)
+        new_entries.append(entry)
+        added += 1
+        # Prevent duplicates within the same run if multiple combos share ts_raw (unlikely but safe)
+        seen_ts.add(ts_raw)
+
+    if new_entries:
+        append_jsonl(videodata_file_path, new_entries)
         logger.info("Titles updated: titles_created=%d file=%s", added, videodata_file_path)
     else:
         logger.info("No new titles generated.")
 
 def write_video_descriptions(videodata_file_path: str) -> None:
     """
-    Fill in descriptions where KEY_DESC is None using the stored title/prompt.
+    Fill in descriptions where KEY_DESC is None (or missing) for a JSONL videodata file.
+    Rewrites the JSONL file atomically after updates.
     """
-    video = parse_videodata(videodata_file_path)
+    video_rows = parse_jsonl(videodata_file_path)
+    if not video_rows:
+        logger.info("No videodata found: %s", videodata_file_path)
+        return
+
     updated = 0
 
-    for v in video:
+    for v in video_rows:
+        if not isinstance(v, dict):
+            continue
+
+        # Treat missing KEY_DESC or explicit None as needing a description
         if v.get(KEY_DESC) is None:
-            title = v.get(KEY_TITLE) or ""
+            title = (v.get(KEY_TITLE) or "").strip().strip('"')
+            if not title:
+                # If there's no title, skip generating to avoid junk prompts
+                continue
+
             logger.info("Generating description for: %s", title)
-            desc = (provide_AI_desc(title) or "").strip('"')
-            prompt = v.get(KEY_PROMPT, "")
+            desc_model = (provide_AI_desc(title) or "").strip().strip('"')
+            prompt = v.get(KEY_PROMPT, "") or ""
 
             v[KEY_DESC] = (
                 "Check out flippi.gg to learn more about this project!"
-                "\n\n" + (prompt or "") +
-                "\n\n" + desc
+                "\n\n" + prompt +
+                ("\n\n" + desc_model if desc_model else "")
             )
             updated += 1
 
     if updated:
-        _json_dump_atomic(video, videodata_file_path)
-        logger.info("Descriptions added: descriptions_filled=%d file=%s", updated, videodata_file_path)
+        write_jsonl_atomic(videodata_file_path, video_rows)
+        logger.info(
+            "Descriptions added: descriptions_filled=%d file=%s",
+            updated, videodata_file_path
+        )
     else:
         logger.info("No missing descriptions found.")
 
@@ -524,17 +459,28 @@ def find_closest_video_file(timestamp: str, video_folder_path: str, used_files: 
     return None
 
 def pair_videodata_with_videofiles(videodata_file_path: str, video_folder_path: str) -> None:
-    video = parse_videodata(videodata_file_path)
-    used_files: set = set()
+    """
+    Match entries in videodata.jsonl with actual video files in a folder.
+    Updates KEY_FILE for entries that don’t yet have a file path.
+    Rewrites the JSONL file atomically after updates.
+    """
+    video_rows = parse_jsonl(videodata_file_path)
+    if not video_rows:
+        logger.info("No videodata found: %s", videodata_file_path)
+        return
 
+    used_files: set = set()
     paired = 0
     unmatched = 0
 
-    for v in video:
+    for v in video_rows:
+        if not isinstance(v, dict):
+            continue
         if v.get(KEY_FILE):
             continue
 
-        file_path = find_closest_video_file(v.get(KEY_TIMESTAMP, ""), video_folder_path, used_files, time_threshold=16)
+        ts = v.get(KEY_TIMESTAMP, "")
+        file_path = find_closest_video_file(ts, video_folder_path, used_files, time_threshold=16)
         if file_path:
             v[KEY_FILE] = file_path
             paired += 1
@@ -542,42 +488,10 @@ def pair_videodata_with_videofiles(videodata_file_path: str, video_folder_path: 
             unmatched += 1
 
     if paired > 0:
-        _json_dump_atomic(video, videodata_file_path)
+        write_jsonl_atomic(videodata_file_path, video_rows)
         logger.info(
             "Paired video files written: files_paired=%d unmatched=%d file=%s",
             paired, unmatched, videodata_file_path
         )
     else:
         logger.info("No updates to file paths. files_paired=%d unmatched=%d", paired, unmatched)
-
-# ----------------------------
-# Maintenance helper (kept)
-# ----------------------------
-def correct_video_data_structure(videodata_file_path: str) -> None:
-    """
-    Ensure each entry has a KEY_PROMPT and reset KEY_DESC to None for proper regeneration if needed.
-    """
-    video = parse_videodata(videodata_file_path)
-    changed = 0
-
-    for v in video:
-        if KEY_PROMPT not in v:
-            v[KEY_PROMPT] = ""
-            changed += 1
-        # If you intend to force fresh descriptions, uncomment:
-        # if KEY_DESC in v:
-        #     v[KEY_DESC] = None
-        #     changed += 1
-
-    if changed:
-        _json_dump_atomic(video, videodata_file_path)
-        logger.info("correct_video_data_structure: entries_changed=%d file=%s", changed, videodata_file_path)
-    else:
-        logger.info("correct_video_data_structure: no changes needed.")
-
-combos = parse_combos_new('C:/Users/15613/Desktop/combodata.jsonl')
-combo = combos[0]
-
-print(get_stage_id(combo))
-
-print(write_title_prompt(combo))
