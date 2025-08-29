@@ -127,7 +127,7 @@ def process_and_upload_comp():
 
         try:
             _prep_videos_for_event()
-            fix_mp4_metadata_in_folder(config.VIDEO_FOLDER)
+            fix_mp4_metadata_in_folder(config.VIDEO_FOLDER, config.VIDEO_DATA)
             generate_compilation_from_videodata(config.VIDEO_DATA)
             video_uploaded = scheduled_upload_video(youtube, config.COMP_DATA, config.POSTED_VIDS_FILE, video_args)
         except Exception as e:
