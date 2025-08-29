@@ -21,9 +21,9 @@ EVENT_FOLDER = _build_event_folder(EVENT_NAME)
 # Construct paths (backward-compatible names)
 EVENT_TITLE = EVENT_FOLDER / "data/event_title.txt"
 VENUE_DESC = EVENT_FOLDER / "data/venue_desc.txt"
-COMBO_DATA = EVENT_FOLDER / "data/combodata.txt"
+COMBO_DATA = EVENT_FOLDER / "data/combodata.jsonl"
 DATA_FOLDER = EVENT_FOLDER / "data"
-VIDEO_DATA = EVENT_FOLDER / "data/videodata.txt"
+VIDEO_DATA = EVENT_FOLDER / "data/videodata.jsonl"
 COMP_DATA = EVENT_FOLDER / "data/compdata.txt"
 VIDEO_FOLDER = EVENT_FOLDER / "clips"
 COMPS_FOLDER = EVENT_FOLDER / "compilations"
@@ -55,9 +55,9 @@ def set_event_name(event_name: str) -> None:
 
     EVENT_TITLE = EVENT_FOLDER / "data/event_title.txt"
     VENUE_DESC = EVENT_FOLDER / "data/venue_desc.txt"
-    COMBO_DATA = EVENT_FOLDER / "data/combodata.txt"
+    COMBO_DATA = EVENT_FOLDER / "data/combodata.jsonl"
     DATA_FOLDER = EVENT_FOLDER / "data"
-    VIDEO_DATA = EVENT_FOLDER / "data/videodata.txt"
+    VIDEO_DATA = EVENT_FOLDER / "data/videodata.jsonl"
     COMP_DATA = EVENT_FOLDER / "data/compdata.txt"
     VIDEO_FOLDER = EVENT_FOLDER / "clips"
     COMPS_FOLDER = EVENT_FOLDER / "compilations"
