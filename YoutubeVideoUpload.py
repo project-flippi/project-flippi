@@ -18,7 +18,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
 from glob import glob
-from ProcessComboTextFile import parse_videodata
+from ProcessComboTextFile import parse_videodata, parse_jsonl, append_jsonl, write_jsonl_atomic
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 
@@ -27,6 +27,38 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from urllib.parse import urlencode
 from datetime import datetime
+
+KEY_TIMESTAMP = "timestamp"
+KEY_FILE      = "file path"
+KEY_TITLE     = "title"
+KEY_PROMPT    = "prompt"
+KEY_DESC      = "description"  # keep current spelling for compatibility
+KEY_TRIGGER   = "trigger"
+KEY_SOURCE    = "source"
+KEY_PHASE     = "phase"
+KEY_ACTIVE    = "active"
+KEY_EVENT     = "event"
+KEY_COMBO     = "combo"
+KEY_PLAYERS   = "players"
+KEY_PLAYER_IN = "playerIndex"
+KEY_START_PER = "startPercent"
+KEY_CUR_PER   = "currentPercent"
+KEY_END_PER   = "endPercent"
+KEY_MOVES     = "moves"
+KEY_MOVE_ID   = "moveId"
+KEY_DID_KILL  = "didKill"
+KEY_SETTINGS  = "settings"
+KEY_STAGE_ID  = "stageId"
+KEY_PORT      = "port"
+KEY_CHAR_ID   = "characterId"
+KEY_TAG       = "nametag"
+KEY_ID        = "videoId"
+KEY_USED  = "used in compilation"
+KEY_FIXED = "metadata fixed"
+KEY_CLIPTITLES = "clip titles"
+KEY_CLIPFILES = "clip files"
+KEY_THUMBNAIL = "thumbnail"
+KEY_THUMBNAIL_SET = "thumbnail set"
 
 
 # Explicitly tell the underlying HTTP transport library not to retry, since
@@ -201,25 +233,25 @@ def scheduled_upload_video(youtube, videodata_file_path, posted_vid_list, args):
   posted_vids = _read_posted_list(posted_vid_list)
 
   logging.info("Posted vid list retrieved")
-  videodata_list = parse_videodata(videodata_file_path)
+  videodata_list = parse_jsonl(videodata_file_path)
   logging.info("Video data list retrieved")
 
   video_uploaded = False # Flag to track if a video was uploaded
 
   try:
     for vid in videodata_list:
-      if vid['File Path'] in posted_vids or vid['File Path'] == None or vid['Title'] == None or vid['Descripition'] == None:
+      if vid[KEY_FILE] in posted_vids or vid[KEY_FILE] == None or vid[KEY_TITLE] == None or vid[KEY_DESC] == None:
         continue # Skip already posted or incomplete videos
 
-      if not os.path.exists(vid['File Path']):
-        logging.info(f"Skipping {vid['File Path']} - file does not exist.")
+      if not os.path.exists(vid[KEY_FILE]):
+        logging.info(f"Skipping {vid[KEY_FILE]} - file does not exist.")
         continue
 
       logging.info("Unposted video found, proceeding to post")
       
-      args.file = vid['File Path']
-      args.title = vid['Title']
-      args.description = vid['Descripition'] + '\n' + config.YOUTUBE_HASHTAGS 
+      args.file = vid[KEY_FILE]
+      args.title = vid[KEY_TITLE]
+      args.description = vid[KEY_DESC] + '\n' + config.YOUTUBE_HASHTAGS 
       args.keywords = (
           config.YOUTUBE_TAGS if isinstance(config.YOUTUBE_TAGS, str)
           else ",".join(config.YOUTUBE_TAGS)
@@ -230,14 +262,14 @@ def scheduled_upload_video(youtube, videodata_file_path, posted_vid_list, args):
       try:
         # Upload and retrieve video ID
         video_id = initialize_upload(youtube, args)
-        vid["VideoId"] = video_id
+        vid[KEY_ID] = video_id
 
         # Set ThumbnailSet to False if a valid thumbnail exists
-        if "Thumbnail" in vid and os.path.exists(vid["Thumbnail"]):
-          vid["ThumbnailSet"] = False
+        if [KEY_THUMBNAIL] in vid and os.path.exists(vid[KEY_THUMBNAIL]):
+          vid[KEY_THUMBNAIL_SET] = False
 
         # Save updated video metadata to file
-        _json_dump_atomic(videodata_list, videodata_file_path)
+        write_jsonl_atomic(videodata_list, videodata_file_path)
 
 
       except (HttpError) as e:
@@ -254,10 +286,10 @@ def scheduled_upload_video(youtube, videodata_file_path, posted_vid_list, args):
 
       
 
-      if vid['File Path'] not in posted_vids:
+      if vid[KEY_FILE] not in posted_vids:
         # After posting, append atomically to avoid partial writes
-        _append_posted_atomic(posted_vid_list, vid['File Path'])
-        logging.info(vid['File Path'] + ' successfully uploaded')
+        append_jsonl(posted_vid_list, vid[KEY_FILE])
+        logging.info(vid[KEY_FILE] + ' successfully uploaded')
       
       video_uploaded = True
       break
@@ -275,35 +307,34 @@ def scheduled_upload_video(youtube, videodata_file_path, posted_vid_list, args):
 
 def set_thumbnails(youtube, videodata_path):
     
-    with open(videodata_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    data = parse_jsonl(videodata_path)
 
     updated = False
 
     for vid in data:
-        if not _file_exists(vid.get("Thumbnail")):
+        if not _file_exists(vid.get(KEY_THUMBNAIL)):
             logging.warning("Thumbnail missing for %s; skipping.", vid.get("File Path"))
             continue
-        if vid.get("ThumbnailSet") == True:
+        if vid.get(KEY_THUMBNAIL_SET) == True:
             continue
-        if "VideoId" not in vid:
-            logging.info(f"Skipping {vid['File Path']}: No video ID found.")
+        if KEY_ID not in vid:
+            logging.info(f"Skipping {vid[KEY_FILE]}: No video ID found.")
             continue
 
         try:
             request = youtube.thumbnails().set(
-                videoId=vid["VideoId"],
-                media_body=vid["Thumbnail"]
+                videoId=vid[KEY_ID],
+                media_body=vid[KEY_THUMBNAIL]
             )
             response = request.execute()
-            logging.info(f"Thumbnail set for video {vid['VideoId']}")
-            vid["ThumbnailSet"] = True
+            logging.info(f"Thumbnail set for video {vid[KEY_ID]}")
+            vid[KEY_THUMBNAIL_SET] = True
             updated = True
         except Exception as e:
-            logging.info(f"Failed to set thumbnail for {vid['File Path']}: {e}")
+            logging.info(f"Failed to set thumbnail for {vid[KEY_FILE]}: {e}")
 
     if updated:
-        _json_dump_atomic(data, videodata_path)
+        write_jsonl_atomic(data, videodata_path)
 
 def _read_posted_list(path):
     try:

@@ -16,10 +16,12 @@ logger = logging.getLogger(__name__)
 KEY_FILE      = "file path"
 KEY_TITLE     = "title"
 KEY_DESC      = "description"
-KEY_USED  = "Used in Compilation"
-KEY_FIXED = "Metadata Fixed"
-KEY_CLIPTITLES = "ClipTitles"
-KEY_CLIPFILES = "ClipFilePaths"
+KEY_USED  = "used in compilation"
+KEY_FIXED = "metadata fixed"
+KEY_CLIPTITLES = "clip titles"
+KEY_CLIPFILES = "clip files"
+KEY_THUMBNAIL = "thumbnail"
+KEY_ID        = "videoId"
 
 def update_compilation_data_old(clip_titles, output_path, clip_file_paths: Optional[List[str]] = None):
     """
@@ -126,7 +128,7 @@ def update_compilation_data(
         KEY_CLIPFILES:  clip_file_paths,
     }
     if thumbnail_str:
-        compilation_dict["Thumbnail"] = thumbnail_str
+        compilation_dict[KEY_THUMBNAIL] = thumbnail_str
 
     # Append one JSON object to the JSONL file
     try:
