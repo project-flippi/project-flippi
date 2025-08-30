@@ -19,7 +19,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
 from glob import glob
-from ProcessComboTextFile import parse_videodata, parse_jsonl, append_jsonl, write_jsonl_atomic
+from ProcessComboTextFile import parse_jsonl, append_jsonl, write_jsonl_atomic
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 
@@ -207,6 +207,7 @@ def scheduled_upload_video(youtube, videodata_file_path, posted_vid_list, args):
   videodata_list = parse_jsonl(videodata_file_path)
   logging.info("Video data list retrieved")
 
+
   video_uploaded = False # Flag to track if a video was uploaded
 
   try:
@@ -219,14 +220,13 @@ def scheduled_upload_video(youtube, videodata_file_path, posted_vid_list, args):
         continue
 
       logging.info("Unposted video found, proceeding to post")
+
+      
       
       args.file = vid[KEY_FILE]
       args.title = vid[KEY_TITLE]
       args.description = vid[KEY_DESC] + '\n' + config.YOUTUBE_HASHTAGS 
-      args.keywords = (
-          config.YOUTUBE_TAGS if isinstance(config.YOUTUBE_TAGS, str)
-          else ",".join(config.YOUTUBE_TAGS)
-      )
+      args.keywords = (config.YOUTUBE_TAGS)
 
       logging.info("Arguements for upload retrieved")
 
@@ -234,13 +234,16 @@ def scheduled_upload_video(youtube, videodata_file_path, posted_vid_list, args):
         # Upload and retrieve video ID
         video_id = initialize_upload(youtube, args)
         vid[KEY_ID] = video_id
+            
 
         # Set ThumbnailSet to False if a valid thumbnail exists
-        if [KEY_THUMBNAIL] in vid and os.path.exists(vid[KEY_THUMBNAIL]):
+        if KEY_THUMBNAIL in vid and os.path.exists(vid[KEY_THUMBNAIL]):
           vid[KEY_THUMBNAIL_SET] = False
 
+        
         # Save updated video metadata to file
-        write_jsonl_atomic(videodata_list, videodata_file_path)
+        logging.info(f"Updating video metadata")
+        write_jsonl_atomic(videodata_file_path, videodata_list)
 
 
       except (HttpError) as e:
@@ -259,7 +262,8 @@ def scheduled_upload_video(youtube, videodata_file_path, posted_vid_list, args):
 
       if vid[KEY_FILE] not in posted_vids:
         # After posting, append atomically to avoid partial writes
-        append_jsonl(posted_vid_list, vid[KEY_FILE])
+        print(vid[KEY_FILE])
+        _append_posted_atomic(posted_vid_list, vid[KEY_FILE])
         logging.info(vid[KEY_FILE] + ' successfully uploaded')
       
       video_uploaded = True

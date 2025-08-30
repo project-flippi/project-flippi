@@ -6,7 +6,7 @@ import logging
 from typing import List, Dict, Any, Optional
 
 import config
-from config import KEY_TIMESTAMP, KEY_FILE, KEY_TITLE, KEY_PROMPT, KEY_DESC, KEY_TRIGGER, KEY_SOURCE, KEY_PHASE, KEY_ACTIVE, KEY_EVENT, KEY_COMBO, KEY_PLAYERS, KEY_PLAYERS_IN, KEY_START_PER, KEY_CUR_PER, KEY_END_PER, KEY_MOVES, KEY_MOVE_ID, KEY_DID_KILL, KEY_SETTINGS, KEY_STAGE_ID, KEY_PORT, KEY_CHAR_ID, KEY_TAG
+from config import KEY_TIMESTAMP, KEY_FILE, KEY_TITLE, KEY_PROMPT, KEY_DESC, KEY_TRIGGER, KEY_SOURCE, KEY_PHASE, KEY_ACTIVE, KEY_EVENT, KEY_COMBO, KEY_PLAYERS, KEY_PLAYER_IN, KEY_START_PER, KEY_CUR_PER, KEY_END_PER, KEY_MOVES, KEY_MOVE_ID, KEY_DID_KILL, KEY_SETTINGS, KEY_STAGE_ID, KEY_PORT, KEY_CHAR_ID, KEY_TAG, KEY_ID, KEY_FIXED
 from resources import stage_dict, character_dict, move_dict, character_movenames_dict
 from AI_functions import provide_AI_title, provide_AI_desc
 
@@ -47,10 +47,19 @@ def write_jsonl_atomic(path: str, rows: List[Dict[str, Any]]) -> None:
     """Rewrite an entire .jsonl file atomically."""
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     tmp = f"{path}.tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        for r in rows:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    os.replace(tmp, path)
+    
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            
+            for r in rows:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        os.replace(tmp, path)
+        if os.path.exists(path):
+            logging.info(f"File successfully written: {path}")
+        else:
+            logging.error(f"Failed to write file: {path}")
+    except Exception as e:
+        logging.exception(f"Error writing to {path}: {e}")
 
 
 def _parse_dt_loose(ts_str: str) -> Optional[datetime.datetime]:
@@ -326,7 +335,9 @@ def write_video_titles(combodata_file_path: str, videodata_file_path: str) -> No
             KEY_DESC: None,      # fill later
             KEY_TAG: get_attacker_nametag(c),
             KEY_STAGE_ID: get_stage_id(c),
-            KEY_COMBO: get_combo(c)
+            KEY_COMBO: get_combo(c),
+            KEY_ID: None,
+            KEY_FIXED: False
         }
 
         new_entries.append(entry)

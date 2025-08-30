@@ -177,6 +177,8 @@ def main():
     EVENT_LIST = get_event_list()
     CURRENT_EVENT_INDEX = 0
 
+
+
     if EVENT_LIST:
         set_active_event(EVENT_LIST[CURRENT_EVENT_INDEX])
     else:
@@ -184,6 +186,8 @@ def main():
 
     youtube = get_authenticated_service()
     video_args = YoutubeArgs()
+    
+
 
     run_schedule()
 

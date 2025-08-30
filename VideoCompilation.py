@@ -1,4 +1,4 @@
-from ProcessComboTextFile import parse_videodata, parse_jsonl, write_jsonl_atomic, append_jsonl
+from ProcessComboTextFile import parse_jsonl, write_jsonl_atomic, append_jsonl
 import os
 import subprocess
 import config
