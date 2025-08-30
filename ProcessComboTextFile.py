@@ -6,38 +6,11 @@ import logging
 from typing import List, Dict, Any, Optional
 
 import config
+from config import KEY_TIMESTAMP, KEY_FILE, KEY_TITLE, KEY_PROMPT, KEY_DESC, KEY_TRIGGER, KEY_SOURCE, KEY_PHASE, KEY_ACTIVE, KEY_EVENT, KEY_COMBO, KEY_PLAYERS, KEY_PLAYERS_IN, KEY_START_PER, KEY_CUR_PER, KEY_END_PER, KEY_MOVES, KEY_MOVE_ID, KEY_DID_KILL, KEY_SETTINGS, KEY_STAGE_ID, KEY_PORT, KEY_CHAR_ID, KEY_TAG
 from resources import stage_dict, character_dict, move_dict, character_movenames_dict
 from AI_functions import provide_AI_title, provide_AI_desc
 
 logger = logging.getLogger(__name__)
-
-# ----------------------------
-# Field & timestamp constants
-# ----------------------------
-KEY_TIMESTAMP = "timestamp"
-KEY_FILE      = "file path"
-KEY_TITLE     = "title"
-KEY_PROMPT    = "prompt"
-KEY_DESC      = "description"  # keep current spelling for compatibility
-KEY_TRIGGER   = "trigger"
-KEY_SOURCE    = "source"
-KEY_PHASE     = "phase"
-KEY_ACTIVE    = "active"
-KEY_EVENT     = "event"
-KEY_COMBO     = "combo"
-KEY_PLAYERS   = "players"
-KEY_PLAYER_IN = "playerIndex"
-KEY_START_PER = "startPercent"
-KEY_CUR_PER   = "currentPercent"
-KEY_END_PER   = "endPercent"
-KEY_MOVES     = "moves"
-KEY_MOVE_ID   = "moveId"
-KEY_DID_KILL  = "didKill"
-KEY_SETTINGS  = "settings"
-KEY_STAGE_ID  = "stageId"
-KEY_PORT      = "port"
-KEY_CHAR_ID   = "characterId"
-KEY_TAG       = "nametag"
 
 
 # Combo text file timestamps may vary; we normalize new videodata timestamps to this:

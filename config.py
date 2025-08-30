@@ -2,6 +2,38 @@ import os
 from pathlib import Path
 # import sys  # was unused
 
+KEY_TIMESTAMP = "timestamp"
+KEY_FILE      = "file path"
+KEY_TITLE     = "title"
+KEY_PROMPT    = "prompt"
+KEY_DESC      = "description"  # keep current spelling for compatibility
+KEY_TRIGGER   = "trigger"
+KEY_SOURCE    = "source"
+KEY_PHASE     = "phase"
+KEY_ACTIVE    = "active"
+KEY_EVENT     = "event"
+KEY_COMBO     = "combo"
+KEY_PLAYERS   = "players"
+KEY_PLAYER_IN = "playerIndex"
+KEY_START_PER = "startPercent"
+KEY_CUR_PER   = "currentPercent"
+KEY_END_PER   = "endPercent"
+KEY_MOVES     = "moves"
+KEY_MOVE_ID   = "moveId"
+KEY_DID_KILL  = "didKill"
+KEY_SETTINGS  = "settings"
+KEY_STAGE_ID  = "stageId"
+KEY_PORT      = "port"
+KEY_CHAR_ID   = "characterId"
+KEY_TAG       = "nametag"
+KEY_ID        = "videoId"
+KEY_USED  = "used in compilation"
+KEY_FIXED = "metadata fixed"
+KEY_CLIPTITLES = "clip titles"
+KEY_CLIPFILES = "clip files"
+KEY_THUMBNAIL = "thumbnail"
+KEY_THUMBNAIL_SET = "thumbnail set"
+
 # ---- Static roots ----
 HOME_DIR = Path.home()
 PROJECT_FOLDER = HOME_DIR / "project-flippi"

@@ -2,6 +2,7 @@ from ProcessComboTextFile import parse_videodata, parse_jsonl, write_jsonl_atomi
 import os
 import subprocess
 import config
+from config import KEY_FILE, KEY_FIXED, KEY_TITLE, KEY_DESC, KEY_USED, KEY_CLIPFILES, KEY_TIMESTAMP
 import random
 import json
 import datetime
@@ -13,15 +14,7 @@ from typing import List, Tuple, Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 #shared keys
-KEY_FILE      = "file path"
-KEY_TITLE     = "title"
-KEY_DESC      = "description"
-KEY_USED  = "used in compilation"
-KEY_FIXED = "metadata fixed"
-KEY_CLIPTITLES = "clip titles"
-KEY_CLIPFILES = "clip files"
-KEY_THUMBNAIL = "thumbnail"
-KEY_ID        = "videoId"
+
 
 def update_compilation_data_old(clip_titles, output_path, clip_file_paths: Optional[List[str]] = None):
     """
