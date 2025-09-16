@@ -63,7 +63,6 @@ THUMBNAILS_FOLDER = EVENT_FOLDER / "thumbnails"
 POSTED_VIDS_FILE = EVENT_FOLDER / "data/postedvids.txt"
 TITLE_HISTORY_FILE = EVENT_FOLDER / "data/titlehistory.txt"
 SHORTS_IMAGES_PATH = EVENT_FOLDER / "images"
-SHORTS_IMAGES_GEN_PATH = EVENT_FOLDER / "images_gen"
 
 # Constants that don’t change
 YOUTUBE_TAGS = ("Super Smash Bros, Super Smash Melee, gaming, Nintendo, eSports, viral, viral shorts, for you")
