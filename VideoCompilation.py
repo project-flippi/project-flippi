@@ -1,8 +1,8 @@
-from ProcessComboTextFile import parse_jsonl, write_jsonl_atomic, append_jsonl
+from ProcessComboTextFile import parse_jsonl, write_jsonl_atomic, append_jsonl, _parse_dt_loose
 import os
 import subprocess
 import config
-from config import KEY_FILE, KEY_FIXED, KEY_TITLE, KEY_DESC, KEY_USED, KEY_CLIPFILES, KEY_TIMESTAMP
+from config import KEY_FILE, KEY_FIXED, KEY_TITLE, KEY_DESC, KEY_USED, KEY_CLIPFILES, KEY_CLIPTITLES, KEY_TIMESTAMP, KEY_THUMBNAIL
 import random
 import json
 import datetime
@@ -33,7 +33,7 @@ def update_compilation_data(
     Desc  = provide_AI_desc(Title)
     Title = (Title or "").strip().strip('"')
     Desc  = (
-        "Check out flippi.gg to register your tag to be ...and learn more about Project Flippi!"
+        "Check out flippi.gg to register your tag and learn more about Project Flippi!"
         "\n\n" + (Desc or "").strip().strip('"')
     )
 
@@ -179,6 +179,14 @@ def create_compilation(selected_clips, output_path):
         cmd_process = [
             "ffmpeg", "-y",
             "-i", temp_compilation,
+            "-filter_complex",
+            "[0:v]crop=1080:960:0:0[top];"
+            "[0:v]crop=1080:960:0:960[bottom];"
+            "[top][bottom]hstack=inputs=2[stacked];"
+            "[stacked]scale=1920:852[scaled];"
+            "[scaled]pad=1920:1080:(ow-iw)/2:(oh-ih)/2:#5c3a21[out]",
+            "-map", "[out]",
+            "-map", "0:a?",
             "-c:v", "libx264", "-preset", "fast", "-crf", "18",
             "-c:a", "copy",
             str(output_path)
@@ -262,7 +270,7 @@ def _ffprobe_duration(path: str) -> Optional[float]:
     except Exception:
         return None
 
-def generate_compilation_from_videodata(videodata_path):
+def generate_compilation_from_videodata(video_data):
     """
     Full process to generate a compilation from videodata.txt.
     Updates videodata.txt to mark used clips and skips already used ones.
@@ -274,13 +282,13 @@ def generate_compilation_from_videodata(videodata_path):
     ct = ct.replace(":", "-")
     filename = ct + ".mp4" 
     output_path = config.COMPS_FOLDER / filename
-    video_rows = parse_jsonl(videodata_path)  # Use the provided function
-    selected_clips, updated_video_data = select_clips_for_compilation(video_data)
+    video_rows = parse_jsonl(video_data)  # Use the provided function
+    selected_clips, updated_video_data = select_clips_for_compilation(video_rows)
 
     if selected_clips:
         compilation_path = create_compilation(selected_clips, output_path)
         if compilation_path:
-            write_jsonl_atomic(videodata_path, updated_video_data)
+            write_jsonl_atomic(video_data, updated_video_data)
             logger.info("Updated videodata.txt to mark used clips.")
             clip_titles = get_clip_titles_from_selected(selected_clips, updated_video_data)
             update_compilation_data(clip_titles, compilation_path, [fp for fp, _ in selected_clips])  # Update the COMP_DATA with compilation info
