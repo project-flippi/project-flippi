@@ -23,7 +23,7 @@ SHORT_SLOTS = {
     "sunday":    ["11:00"],
 }
 COMP_SLOTS = {
-    "tuesday": ["11:45"],
+    "tuesday": ["11:00"],
 }
 
 def get_event_list():
@@ -187,8 +187,6 @@ def main():
     youtube = get_authenticated_service()
     video_args = YoutubeArgs()
     
-
-
     run_schedule()
 
     try:
