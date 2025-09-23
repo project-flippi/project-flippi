@@ -309,7 +309,7 @@ def set_thumbnails(youtube, videodata_path):
             logging.info(f"Failed to set thumbnail for {vid[KEY_FILE]}: {e}")
 
     if updated:
-        write_jsonl_atomic(data, videodata_path)
+        write_jsonl_atomic(videodata_path, data)
 
 def _read_posted_list(path):
     try:
