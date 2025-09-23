@@ -9,3 +9,7 @@ __pycache__/
 *.bak
 *.swp
 .DS_Store
+_keys/
+_misc/
+_obs/
+Event/
