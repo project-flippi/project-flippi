@@ -36,7 +36,7 @@ KEY_THUMBNAIL_SET = "thumbnail set"
 
 # ---- Static roots ----
 HOME_DIR = Path.home()
-PROJECT_FOLDER = HOME_DIR / "project-flippi"
+PROJECT_FOLDER = HOME_DIR / "project-flippi-youtube"
 
 def get_event_name():
     """Fetch the latest event name from the environment variable."""

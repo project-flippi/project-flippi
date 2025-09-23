@@ -10,7 +10,7 @@ import importlib
 import logging
 import sys
 
-EVENTS_BASE_DIR = Path.home() / "project-flippi" / "Event"
+EVENTS_BASE_DIR = Path.home() / "project-flippi-youtube" / "Event"
 
 # ---- scheduling constants (readability only) ----
 ROTATE_TIMES = ["12:00"]
