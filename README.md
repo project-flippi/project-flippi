@@ -15,7 +15,7 @@ Project Flippi is your highlight autopilot — capturing the hypest Super Smash 
 To get a local copy up and running, follow these simple steps.
 ### Prerequisites
 
-- Project-Flippi's Fork of Project Clippi https://github.com/project-flippi/project-clippi
+- Project-Flippi's Fork of Project Clippi https://github.com/project-flippi/project-clippi/tree/feat/live-context-write
 	- This fork allows for combodata to be written.
 - Project-Slippi slippi-launcher https://github.com/project-slippi/slippi-launcher/releases
 - OBS setup following https://vinceau.medium.com/how-to-turn-slp-files-into-video-using-obs-and-project-clippi-23fe0598de29
