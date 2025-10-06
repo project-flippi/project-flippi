@@ -11,6 +11,8 @@ import tempfile
 from pathlib import Path
 import logging
 from typing import List, Tuple, Optional, Dict, Any
+import glob
+import re
 
 logger = logging.getLogger(__name__)
 #shared keys
@@ -210,6 +212,120 @@ def create_compilation(selected_clips, output_path):
                 os.rmdir(temp_dir)
         except Exception:
             pass
+
+def create_compilation_from_folder(
+    folder_path: str,
+    *,
+    extensions=(".mp4", ".mov", ".mkv"),
+    sort_by: str = "name"  # "name" (natural/alphanumeric) or "mtime"
+):
+    """
+    Build a compilation from *all* clips in `folder_path` and save the output in the same folder.
+
+    :param folder_path: Directory containing the clips to concatenate.
+    :param extensions: Video file extensions to include.
+    :param sort_by: Sorting for clip order: "name" (natural sort) or "mtime".
+    :return: Path to the final output video, or None if failed.
+    """
+    # --- helpers ---
+    def _ffmpeg_escape_path(p: str) -> str:
+        # Escape single quotes for FFmpeg concat file list lines
+        return p.replace("'", r"'\''")
+
+    def _natural_key(s: str):
+        # Natural sort so "clip2" < "clip10"
+        return [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', s)]
+
+    try:
+        if not os.path.isdir(folder_path):
+            logger.info("Folder does not exist or is not a directory: %s", folder_path)
+            return None
+
+        # Gather candidate files
+        candidates = []
+        for name in os.listdir(folder_path):
+            full = os.path.join(folder_path, name)
+            if os.path.isfile(full) and name.lower().endswith(tuple(ext.lower() for ext in extensions)):
+                candidates.append(full)
+
+        if not candidates:
+            logger.info("No clips found in folder: %s", folder_path)
+            return None
+
+        # Sort
+        if sort_by == "mtime":
+            candidates.sort(key=lambda p: os.path.getmtime(p))
+        else:
+            # default to natural/alphanumeric by file name
+            candidates.sort(key=lambda p: _natural_key(os.path.basename(p)))
+
+        # Determine output path (in the same folder)
+        stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = os.path.join(folder_path, f"compilation_{stamp}.mp4")
+
+        # Create temporary working dir
+        temp_dir = tempfile.mkdtemp()
+        list_path = os.path.join(temp_dir, "list.txt")
+
+        try:
+            # Write concat list
+            with open(list_path, "w", encoding="utf-8") as f:
+                for file_path in candidates:
+                    if not os.path.isfile(file_path):
+                        logger.info("Skipping %s: File not found.", file_path)
+                        continue
+                    f.write(f"file '{_ffmpeg_escape_path(file_path)}'\n")
+
+            # 1) Concatenate using FFmpeg (copy streams)
+            temp_compilation = os.path.join(temp_dir, "temp_concatenated.mp4")
+            cmd_concat = [
+                "ffmpeg", "-y",
+                "-f", "concat", "-safe", "0", "-i", list_path,
+                "-c", "copy",
+                temp_compilation
+            ]
+            subprocess.run(cmd_concat, check=True, capture_output=True, text=True)
+            logger.info("Concatenated compilation saved at: %s", temp_compilation)
+
+            # 2) Post-process (same filter chain as your original)
+            cmd_process = [
+                "ffmpeg", "-y",
+                "-i", temp_compilation,
+                "-filter_complex",
+                "[0:v]crop=1080:960:0:0[top];"
+                "[0:v]crop=1080:960:0:960[bottom];"
+                "[top][bottom]hstack=inputs=2[stacked];"
+                "[stacked]scale=1920:852[scaled];"
+                "[scaled]pad=1920:1080:(ow-iw)/2:(oh-ih)/2:#5c3a21[out]",
+                "-map", "[out]",
+                "-map", "0:a?",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+                "-c:a", "copy",
+                output_path
+            ]
+            subprocess.run(cmd_process, check=True, capture_output=True, text=True)
+            logger.info("Final processed compilation saved at: %s", output_path)
+            return output_path
+
+        except subprocess.CalledProcessError as e:
+            logger.error("Error during processing: %s", e.stderr)
+            return None
+
+        finally:
+            # Clean up temp dir
+            try:
+                for root, dirs, files in os.walk(temp_dir, topdown=False):
+                    for name in files:
+                        os.remove(os.path.join(root, name))
+                    for name in dirs:
+                        os.rmdir(os.path.join(root, name))
+                os.rmdir(temp_dir)
+            except Exception:
+                pass
+
+    except Exception as e:
+        logger.exception("Unexpected error: %s", e)
+        return None
 
 def _json_dump_atomic(data, file_path):
     """
@@ -425,3 +541,5 @@ def fix_mp4_metadata_in_folder(folder_path, videodata_path: Optional[str] = None
             logger.info("Videodata updated with '%s': true flags.", KEY_FIXED)
         except Exception as e:
             logger.error("Failed to write updated videodata to %s: %s", videodata_path, e)
+
+#create_compilation_from_folder('C:/Users/15613/project-flippi-youtube/Event/Hokie-Hoedown/fullrecordings/Sets/foldername')
