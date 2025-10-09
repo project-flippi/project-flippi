@@ -6,12 +6,12 @@ echo -----------------------------------------------
 :: User-configurable settings
 :: -----------------------------
 set "OBS_PROFILE_NAME=ProjectFlippi"
-set "OBS_REC_PATH=%USERPROFILE%\project-flippi-youtube\Event\GoldenCactusWeeklies\fullrecordings"
+set "OBS_REC_PATH=%USERPROFILE%\project-flippi-youtube\Event\Hokie-Hoedown\fullrecordings"
 
 :: obs-websocket connection (match OBS settings)
 set "OBS_HOST=127.0.0.1"
 set "OBS_PORT=4444"
-set "OBS_PASSWORD=REDACTED"
+set "OBS_PASSWORD=xboxkid"
 
 :: -----------------------------
 :: Paths
@@ -47,7 +47,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "Start-Process '%OBS_DIR%\obs64.exe' -WorkingDirectory '%OBS_DIR%' -ArgumentList @('--profile','%OBS_PROFILE_NAME%') -WindowStyle Minimized"
 
 :: Give OBS a moment to boot the websocket server
-timeout /t 10 >nul
+timeout /t 5 >nul
 
 :: Update the recording path on the target profile via websocket
 echo Setting OBS recording path via obs-websocket...
@@ -58,12 +58,6 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-
-:: Relaunch OBS with Replay Buffer (optional):
-:: If OBS is already running from above, this will just bring it up with the same instance.
-echo Bringing up OBS with Replay Buffer...
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "Start-Process 'obs64.exe' -WorkingDirectory '%OBS_DIR%' -Verb RunAs -ArgumentList @('--profile','%OBS_PROFILE_NAME%','--startreplaybuffer')"
 
 echo Done. Recording path should now be: %OBS_REC_PATH%
 pause

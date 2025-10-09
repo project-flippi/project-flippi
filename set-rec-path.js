@@ -20,70 +20,35 @@ const obs = new OBSWebSocket();
   try {
     await obs.connect({ address: `${host}:${port}`, password });
 
-    // Log server version so we know what we’re talking to
-    try {
-      const ver = await obs.send('GetVersion');
-      console.log('Connected to obs-websocket v4 server:', ver);
-    } catch (e) {
-      console.log('Connected (GetVersion not available)', e && e.message);
-    }
-
-    // Ensure we set params on the intended profile
+    
     if (profileName) {
       await obs.send('SetCurrentProfile', { 'profile-name': profileName });
     }
 
-    // Try SetProfileParameter first (if server supports it)
-    async function trySetProfileParameter() {
-      await obs.send('SetProfileParameter', {
-        category: 'SimpleOutput',
-        parameter: 'FilePath',
-        value: recordPath
-      });
-      await obs.send('SetProfileParameter', {
-        category: 'AdvOut',
-        parameter: 'RecFilePath',
-        value: recordPath
-      });
+    // Set path (compat-safe)
+    await obs.send('SetRecordingFolder', { 'rec-folder': recordPath });
+    const got = await obs.send('GetRecordingFolder');
+    console.log('Recording path set via SetRecordingFolder');
+    console.log(' rec-folder =', got['rec-folder']);
 
-      const simple = await obs.send('GetProfileParameter', {
-        category: 'SimpleOutput',
-        parameter: 'FilePath'
-      });
-      const adv = await obs.send('GetProfileParameter', {
-        category: 'AdvOut',
-        parameter: 'RecFilePath'
-      });
-
-      console.log('Recording path set via SetProfileParameter');
-      console.log(' SimpleOutput.FilePath =', simple.value);
-      console.log(' AdvOut.RecFilePath   =', adv.value);
-    }
-
-    // Fallback: v4’s SetRecordingFolder (works across modes on v4)
-    async function trySetRecordingFolder() {
-      await obs.send('SetRecordingFolder', { 'rec-folder': recordPath });
-      const got = await obs.send('GetRecordingFolder');
-      console.log('Recording path set via SetRecordingFolder');
-      console.log(' rec-folder =', got['rec-folder']);
-    }
-
+    // Start Replay Buffer if not running
     try {
-      await trySetProfileParameter();
-    } catch (e) {
-      const msg = (e && e.error) || (e && e.message) || String(e);
-      if (/invalid request type/i.test(msg) || /Unknown request/i.test(msg)) {
-        console.log('SetProfileParameter not supported on this server. Falling back to SetRecordingFolder…');
-        await trySetRecordingFolder();
+      const r = await obs.send('GetReplayBufferStatus');
+      if (!r['isReplayBufferActive']) {
+        console.log('Replay Buffer not active, starting…');
+        await obs.send('StartReplayBuffer');
       } else {
-        throw e;
+        console.log('Replay Buffer already active.');
       }
+    } catch (e) {
+      // If Replay Buffer is disabled in OBS settings, this may throw
+      console.log('Could not query/start Replay Buffer (is it enabled in OBS Settings > Output?)', e?.message || e);
     }
 
     obs.disconnect();
     process.exit(0);
   } catch (err) {
-    console.error('Failed to set recording path via obs-websocket (v4):', err && err.message ? err.message : err);
+    console.error('Failed to set recording path via obs-websocket (v4):', err?.message || err);
     try { obs.disconnect(); } catch {}
     process.exit(1);
   }
