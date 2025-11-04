@@ -13,10 +13,9 @@ KEYS_DIR = REPO_ROOT / "_keys"
 
 # Template expected structure (self-heal if missing)
 TEMPLATE_SUBFOLDERS = [
-    "clips",
-    "compilations",
     "data",
-    "fullrecordings",
+    "videos/clips",
+    "videos/compilations",
     "images",
     "slp",
     "thumbnails",
@@ -110,7 +109,7 @@ def ensure_keys_placeholders():
         print("\n⚠️  The following key files were created as empty placeholders:")
         for f in created:
             print(f"   - {f}")
-        print("\n👉 You must populate these files for project-flippi-youtube to function:")
+        print("\n👉 You must populate these files for project-flippi to function:")
         print("   • client_secret.json  → Google API OAuth2 client secret for YouTube uploads")
         print("   • open_AI_key.json    → OpenAI API key for generating titles, descriptions, and thumbnails\n")
 

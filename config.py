@@ -36,7 +36,7 @@ KEY_THUMBNAIL_SET = "thumbnail set"
 
 # ---- Static roots ----
 HOME_DIR = Path.home()
-PROJECT_FOLDER = HOME_DIR / "project-flippi-youtube"
+PROJECT_FOLDER = HOME_DIR / "project-flippi"
 
 def get_event_name():
     """Fetch the latest event name from the environment variable."""
@@ -57,8 +57,8 @@ COMBO_DATA = EVENT_FOLDER / "data/combodata.jsonl"
 DATA_FOLDER = EVENT_FOLDER / "data"
 VIDEO_DATA = EVENT_FOLDER / "data/videodata.jsonl"
 COMP_DATA = EVENT_FOLDER / "data/compdata.jsonl"
-VIDEO_FOLDER = EVENT_FOLDER / "clips"
-COMPS_FOLDER = EVENT_FOLDER / "compilations"
+VIDEO_FOLDER = EVENT_FOLDER / "videos/clips"
+COMPS_FOLDER = EVENT_FOLDER / "videos/compilations"
 THUMBNAILS_FOLDER = EVENT_FOLDER / "thumbnails"
 POSTED_VIDS_FILE = EVENT_FOLDER / "data/postedvids.txt"
 TITLE_HISTORY_FILE = EVENT_FOLDER / "data/titlehistory.txt"
@@ -90,8 +90,8 @@ def set_event_name(event_name: str) -> None:
     DATA_FOLDER = EVENT_FOLDER / "data"
     VIDEO_DATA = EVENT_FOLDER / "data/videodata.jsonl"
     COMP_DATA = EVENT_FOLDER / "data/compdata.jsonl"
-    VIDEO_FOLDER = EVENT_FOLDER / "clips"
-    COMPS_FOLDER = EVENT_FOLDER / "compilations"
+    VIDEO_FOLDER = EVENT_FOLDER / "videos/clips"
+    COMPS_FOLDER = EVENT_FOLDER / "vidoes/compilations"
     THUMBNAILS_FOLDER = EVENT_FOLDER / "thumbnails"
     POSTED_VIDS_FILE = EVENT_FOLDER / "data/postedvids.txt"
     TITLE_HISTORY_FILE = EVENT_FOLDER / "data/titlehistory.txt"
