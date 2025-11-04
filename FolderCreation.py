@@ -10,6 +10,8 @@ REPO_ROOT = Path(__file__).resolve().parent
 TEMPLATE_DIR = REPO_ROOT / "_EventTemplate"
 EVENTS_DIR = REPO_ROOT / "Event"
 KEYS_DIR = REPO_ROOT / "_keys"
+ACTIVE_CLIPPI_DIR = REPO_ROOT / "_ActiveClippiComboData"
+ACTIVE_CLIPPI_FILE = ACTIVE_CLIPPI_DIR / "combodata.jsonl"
 
 # Template expected structure (self-heal if missing)
 TEMPLATE_SUBFOLDERS = [
@@ -115,6 +117,20 @@ def ensure_keys_placeholders():
         print("   • open_AI_key.json    → OpenAI API key for generating titles, descriptions, and thumbnails\n")
         print("   • OBSconnection.json    → Input your OBS websocket server settings. Should match what you have in OBS and Clippi")
 
+def ensure_activeclippicombodata() -> Path:
+    """
+    Ensure the repo has '_ActiveClippiComboData' at the root and a
+    'combodata.jsonl' file inside it. Creates them if missing.
+    Returns the path to the JSONL file.
+    """
+    # Make sure the directory exists
+    ensure_dir(ACTIVE_CLIPPI_DIR)
+
+    # Make sure the file exists (empty placeholder is fine)
+    if not ACTIVE_CLIPPI_FILE.exists():
+        ACTIVE_CLIPPI_FILE.touch()
+
+    return ACTIVE_CLIPPI_FILE
 
 def ensure_repo_scaffold():
     """
@@ -122,6 +138,7 @@ def ensure_repo_scaffold():
     """
     self_heal_template()
     ensure_dir(EVENTS_DIR)
+    ensure_activeclippicombodata()
     ensure_keys_placeholders()
 
 
@@ -184,7 +201,7 @@ def main():
             print(f"✅ Event folder ready at:\n   {created_path.resolve()}")
 
         if not confirm("\nCreate another event?"):
-            print("All set. Go play some melee and have fun!")
+            print("All set. Run 1_StartFlippiRecordingStack.bat when you are ready to record and 2_StartFlippiUploadSchedule.bat to upload your videos")
             break
 
 
