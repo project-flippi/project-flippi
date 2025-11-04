@@ -37,7 +37,9 @@ pip install -r requirements.txt
 npm init -y
 npm install obs-websocket-js@4
 
-#Upon your first use of this project or when you need to create a new event folder with the associated data files needed for an upcoming tourney, a new weekly, or a new content series, run the following and follow the prompts
+#Upon your first use of this project or when you need to create a new event folder with the 
+#associated data files needed for an upcoming tourney, a new weekly, or a new content series, 
+#run the following and follow the prompts
 cd project-flippi
 0_CreateFlippiEventFolders.bat
 
@@ -45,7 +47,8 @@ cd project-flippi
 #Place your OpenAI API key in _keys>open_AI_key.json
 #Enter your OBS websocket values in _keys>OBSconnection.json
 
-# Next, before you go to an event to record footage, update your Project Clippi actions to write data to a file when a combo/conversion event occurs and to save a OBS replay buffer.
+# Next, before you go to an event to record footage, update your Project Clippi actions to write data 
+# to a file when a combo/conversion event occurs and to save a OBS replay buffer.
 # The data to write is
 # {"timestamp":"{{YYYY}}-{{MM}}-{{DD}} {{HH}}-{{mm}}-{{ss}}","trigger":"filter","source":"{{comboSource}}","phase":"{{comboPhase}}","active":"{{liveHasActiveCombo}}","event":{{ComboEventPayload}}}
 # The file to write to is combodata.jsonl located within project-flippi\_ActiveClippiComboData
@@ -53,13 +56,16 @@ cd project-flippi
 
 ### Usage
 ```bash
-#After you created your event folder and have project-clippi setup with your desired settings, you are ready to run the  the following code in command prompt with admin privileges
+#After you created your event folder and have project-clippi setup with your desired settings, you are ready to run the  
+#the following code in command prompt with admin privileges which boots OBS with replay buffer with video location based on user selected event, 
+#boots Clippi, boots Slippi, and paths the activeclippicombodata jsonl file to the user selected event file.
 cd project-flippi
 1_StartFlippiRecordingStack.bat
 ```
 
 ```bash
-#After you successfully record footage using the recording stack, and you are ready to run the upload schedule, run the following code in command prompt with admin privileges
+#After you successfully record footage using the recording stack, and you are ready to run the upload schedule, 
+# run the following code in command prompt with admin privileges. This can be left running indefinetely. 
 cd project-flippi
 2_StartFlippiUploadSchedule.bat
 ```
