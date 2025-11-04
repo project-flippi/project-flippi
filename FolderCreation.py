@@ -35,6 +35,7 @@ KEY_FILES = [
     "client_secret.json",
     "credentials.json",
     "open_AI_key.json",
+    "OBSconnection.json",
 ]
 
 
@@ -112,6 +113,7 @@ def ensure_keys_placeholders():
         print("\n👉 You must populate these files for project-flippi to function:")
         print("   • client_secret.json  → Google API OAuth2 client secret for YouTube uploads")
         print("   • open_AI_key.json    → OpenAI API key for generating titles, descriptions, and thumbnails\n")
+        print("   • OBSconnection.json    → Input your OBS websocket server settings. Should match what you have in OBS and Clippi")
 
 
 def ensure_repo_scaffold():
