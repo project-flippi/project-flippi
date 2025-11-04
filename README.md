@@ -17,12 +17,13 @@ To get a local copy up and running, follow these simple steps.
 
 - Project-Flippi's Fork of Project Clippi https://github.com/project-flippi/project-clippi/
 	- This fork allows for combodata to be written.
+	- This fork also allows for automatic connections to OBS and Slippi Dolphin instances should the feature be enabled which speeds up the process for recording
 - Project-Slippi slippi-launcher https://github.com/project-slippi/slippi-launcher/releases
 - OBS setup following https://vinceau.medium.com/how-to-turn-slp-files-into-video-using-obs-and-project-clippi-23fe0598de29
 	- Clip format should be 1920 vertical x 1080 horizontal
 	- Clip format should have the game in the top 960 x 1080 and the player cam in the bottom 960 x 1080
-- YouTube API key
-- OpenAI API key
+- YouTube API key (required for 0_StartFlippiUploadSchedule.bat)
+- OpenAI API key (required for 0_StartFlippiUploadSchedule.bat)
 
 ### Installation
 
@@ -33,30 +34,34 @@ cd project-flippi
 python -m venv venv
 .\venv\Scripts\activate
 pip install -r requirements.txt
+npm init -y
+npm install obs-websocket-js@4
 
-#Upon your first use of this project or when you need to create a new event folder with the associated data files needed for an upcoming tourney, a new weekly, or a new content series, run FolderCreation.py and follow the prompts
+#Upon your first use of this project or when you need to create a new event folder with the associated data files needed for an upcoming tourney, a new weekly, or a new content series, run the following and follow the prompts
 cd project-flippi
-python -m venv venv
-.\venv\Scripts\activate
-python FolderCreation.py
+0_CreateFlippiEventFolders.bat
 
 #Place your Google API OAuth 2 client secret in _keys>client_secret.json
 #Place your OpenAI API key in _keys>open_AI_key.json
+#Enter your OBS websocket values in _keys>OBSconnection.json
 
-# Next, before you go to an event to record footage, update your Project Clippi actions to write data to a file when a combo/conversion event occurs. 
+# Next, before you go to an event to record footage, update your Project Clippi actions to write data to a file when a combo/conversion event occurs and to save a OBS replay buffer.
 # The data to write is
 # {"timestamp":"{{YYYY}}-{{MM}}-{{DD}} {{HH}}-{{mm}}-{{ss}}","trigger":"filter","source":"{{comboSource}}","phase":"{{comboPhase}}","active":"{{liveHasActiveCombo}}","event":{{ComboEventPayload}}}
-# The file to write to is combodata.jsonl located within Event>Your Created Event>data
+# The file to write to is combodata.jsonl located within project-flippi\_ActiveClippiComboData
 ```
 
 ### Usage
+```bash
+#After you created your event folder and have project-clippi setup with your desired settings, you are ready to run the  the following code in command prompt with admin privileges
+cd project-flippi
+1_StartFlippiRecordingStack.bat
+```
 
 ```bash
-#After you successfully record footage using OBS and Project Clippi for the tourney/weekly/your personal content series, run the following code
+#After you successfully record footage using the recording stack, and you are ready to run the upload schedule, run the following code in command prompt with admin privileges
 cd project-flippi
-python -m venv venv
-.\venv\Scripts\activate
-python main.py
+2_StartFlippiUploadSchedule.bat
 ```
 
 ## Contributing
