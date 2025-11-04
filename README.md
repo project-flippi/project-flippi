@@ -22,8 +22,8 @@ To get a local copy up and running, follow these simple steps.
 - OBS setup following https://vinceau.medium.com/how-to-turn-slp-files-into-video-using-obs-and-project-clippi-23fe0598de29
 	- Clip format should be 1920 vertical x 1080 horizontal
 	- Clip format should have the game in the top 960 x 1080 and the player cam in the bottom 960 x 1080
-- YouTube API key (required for 0_StartFlippiUploadSchedule.bat)
-- OpenAI API key (required for 0_StartFlippiUploadSchedule.bat)
+- YouTube API key (required for 2_StartFlippiUploadSchedule.bat)
+- OpenAI API key (required for 2_StartFlippiUploadSchedule.bat)
 
 ### Installation
 
