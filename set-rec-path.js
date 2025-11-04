@@ -15,7 +15,7 @@ const obs = new OBSWebSocket();
   const profileName = profileArg || '';        // optional
   const host = hostArg || '127.0.0.1';
   const port = portArg || '4444';
-  const password = passArg || '';
+  const password = passArg || '1';
 
   try {
     await obs.connect({ address: `${host}:${port}`, password });
