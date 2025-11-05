@@ -11,7 +11,7 @@ set "OBS_DIR=%ProgramFiles%\obs-studio\bin\64bit"
 set "SCRIPT_DIR=%USERPROFILE%\project-flippi"
 set "SETTER_JS=%SCRIPT_DIR%\set-rec-path.js"
 set "EVENTS_DIR=%USERPROFILE%\project-flippi\Event"
-set "OBS_PROFILE_NAME=ProjectFlippi"
+
 :: initial default (will be overwritten after selection)
 set "OBS_REC_PATH=%USERPROFILE%\project-flippi\Event\Hokie-Hoedown\videos"
 
@@ -111,16 +111,16 @@ exit /b 1
 :: -----------------------------
 :: Launch OBS once (no admin), correct working dir
 :: -----------------------------
-echo Launching OBS Studio (Profile: %OBS_PROFILE_NAME%) minimized...
+echo Launching OBS Studio minimized...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "Start-Process '%OBS_DIR%\obs64.exe' -WorkingDirectory '%OBS_DIR%' -ArgumentList @('--profile','%OBS_PROFILE_NAME%') -WindowStyle Minimized"
+  "Start-Process '%OBS_DIR%\obs64.exe' -WorkingDirectory '%OBS_DIR%' -WindowStyle Minimized"
 
 :: Give OBS a moment to boot the websocket server
 timeout /t 5 >nul
 
 :: Update the recording path (and start Replay Buffer) via websocket
 echo Setting OBS recording path via obs-websocket...
-node "%SETTER_JS%" "%OBS_REC_PATH%" "%OBS_PROFILE_NAME%"
+node "%SETTER_JS%" "%OBS_REC_PATH%" 
 if errorlevel 1 (
   echo ERROR: Could not set recording path through obs-websocket.
   echo Check OBS ^> Tools ^> WebSocket Server Settings port/password, then try again.

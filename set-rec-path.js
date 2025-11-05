@@ -55,14 +55,14 @@ function loadJsonKeys() {
 }
 
 (async () => {
-  const [,, recPathArg, profileArg, hostArg, portArg, passArg] = process.argv;
+  const [,, recPathArg, hostArg, portArg, passArg] = process.argv;
   if (!recPathArg) {
-    console.error('Missing <recordPath>. Usage: node set-rec-path.js "<recordPath>" "<profileName?>" "<host?>" "<port?>" "<password?>"');
+    console.error('Missing <recordPath>. Usage: node set-rec-path.js "<recordPath>" "<host?>" "<port?>" "<password?>"');
     process.exit(2);
   }
 
   const recordPath = recPathArg;
-  const profileName = profileArg ;        // optional
+
   
   // Load from JSON first, then let CLI values override if provided.
   let jsonKeys = { host: '', port: '', password: '', keysPath: '' };
@@ -88,9 +88,7 @@ function loadJsonKeys() {
     await obs.connect({ address: `${host}:${port}`, password });
 
     
-    if (profileName) {
-      await obs.send('SetCurrentProfile', { 'profile-name': profileName });
-    }
+
 
     // Set path (compat-safe)
     await obs.send('SetRecordingFolder', { 'rec-folder': recordPath });
