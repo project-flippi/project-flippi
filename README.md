@@ -15,6 +15,8 @@ Project Flippi is your highlight autopilot — capturing the hypest Super Smash 
 To get a local copy up and running, follow these simple steps.
 ### Prerequisites
 
+- Windows OS
+- Node.js https://nodejs.org/en/download (recommend the prebuilt option near the bottom of the page)
 - Project-Flippi's Fork of Project Clippi https://github.com/project-flippi/project-clippi/
 	- This fork allows for combodata to be written.
 	- This fork also allows for automatic connections to OBS and Slippi Dolphin instances should the feature be enabled which speeds up the process for recording
